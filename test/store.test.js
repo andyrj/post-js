@@ -305,3 +305,27 @@ test("init state", t => {
   t.is(store.comp, "test-1");
   t.is(store.nested.test, 1);
 });
+
+test("arrays should not mutate immediately in actions", t => {
+  const init = [1, 2, 3];
+  const store = Store(
+    {
+      arr: [1, 2, 3]
+    },
+    {
+      doSplice() {
+        this.arr.splice(0, 0, 0);
+        let res = true;
+        this.arr.forEach((v, i) => {
+          if (v !== init[i]) {
+            res = false;
+          }
+        });
+        t.is(res, true);
+      }
+    }
+  );
+
+  store.doSplice();
+  t.is(store.arr[0], 0);
+});
