@@ -44,8 +44,9 @@ function extendArray(val, theSetter) {
       if (arrayMutators.indexOf(name) > -1) {
         return function() {
           // you need to delay the set of this value just like SArray... save mutation to temp first...
-          const res = Array.prototype[name].apply(this, arguments);
-          theSetter(target);
+          let tmp = target.slice(0); // get clone of array
+          const res = Array.prototype[name].apply(tmp, arguments);
+          theSetter(tmp);
           return res;
         };
       }
