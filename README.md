@@ -41,8 +41,7 @@ const store = Store(
   }
 );
 
-// equivalent to mobx autorun...  will be adding a wrapper for this to better
-// imitate the mobx api shortly...
+// equivalent to mobx autorun...
 autorun(() => {
   console.log(store.fullName);
 });
