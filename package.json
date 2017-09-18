@@ -3,11 +3,24 @@
   "version": "0.0.1",
   "description": "Proxied Observable State Tree - mobx inspired state tree built with s-js and fast-json-patch",
   "main": "dist/post.js",
+  "jsnext:main": "src/index.js",
+  "module": "src/index.js",
   "directories": {
     "test": "test"
   },
+  "files": [
+    "src",
+    "dist"
+  ],
   "scripts": {
-    "test": "nyc ava"
+    "test": "nyc ava",
+    "build": "rollup --config rollup.config.prod.js",
+    "build:dev": "rollup --config rollup.config.js",
+    "prepublish": "npm run build",
+    "lint": "eslint --ext .js src/",
+    "lint:fix": "eslint --fix --ext .js src/",
+    "format": "prettier --write 'src/**/*.js'",
+    "release": "npm run build && git commit -am $npm_package_version && git tag $npm_package_version && git push && git push --tags && npm publish"
   },
   "repository": {
     "type": "git",
@@ -28,5 +41,23 @@
   "dependencies": {
     "fast-json-patch": "^2.0.5",
     "s-js": "^0.4.5"
+  },
+  "devDependencies": {
+    "ava": "^0.22.0",
+    "babel-eslint": "^8.0.0",
+    "babel-preset-env": "^1.6.0",
+    "eslint": "^4.7.0",
+    "eslint-config-airbnb": "^15.1.0",
+    "eslint-plugin-import": "^2.7.0",
+    "eslint-plugin-jsx-a11y": "^5.1.1",
+    "eslint-plugin-prettier": "^2.2.0",
+    "eslint-plugin-promise": "^3.5.0",
+    "eslint-plugin-react": "^7.3.0",
+    "eslint-plugin-smells": "^1.0.1",
+    "eslint-plugin-standard": "^3.0.1",
+    "nyc": "^11.2.1",
+    "prettier": "^1.7.0",
+    "rollup": "^0.50.0",
+    "rollup-plugin-babel-minify": "^3.1.2"
   }
 }
