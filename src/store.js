@@ -25,8 +25,9 @@ export function autorun(thunk) {
 
 export function Store(state, actions) {
   const store = function() {};
-  const stateKeys = [];
-  const disposers = {};
+  let computedKeys = [];
+  let snapKeys = [];
+  let disposers = {};
   const proxy = new Proxy(store, {
     get: function(target, name) {
       if (name in target) {
@@ -78,7 +79,7 @@ export function Store(state, actions) {
     },
     has: function(target, name) {
       // we only want for..in loops to operate on state, not actions...
-      if (stateKeys.indexOf(name) > -1) {
+      if (computedKeys.indexOf(name) > -1 || snapKeys.indexOf(name) > -1) {
         return true;
       } else {
         return false;
@@ -87,7 +88,8 @@ export function Store(state, actions) {
     ownKeys: function(target) {
       return Reflect.ownKeys(target).filter(k => {
         return (
-          stateKeys.indexOf(k) > -1 ||
+          computedKeys.indexOf(k) > -1 ||
+          snapKeys.indexOf(k) > -1 ||
           k === "caller" ||
           k === "prototype" ||
           k === "arguments"
@@ -108,7 +110,7 @@ export function Store(state, actions) {
       const opts = args[3];
       switch (t) {
         case "data":
-          stateKeys.push(key);
+          snapKeys.push(key);
           if (opts && opts.observed === false) {
             target[key] = val;
           } else {
@@ -126,7 +128,7 @@ export function Store(state, actions) {
           };
           break;
         case "computed":
-          stateKeys.push(key);
+          computedKeys.push(key);
           const comp = val.bind(proxy);
           S.root(dispose => {
             target[key] = S(comp);
@@ -134,6 +136,7 @@ export function Store(state, actions) {
           });
           break;
         case "store":
+          snapKeys.push(key);
           const s = val.state || {};
           const a = val.actions || {};
           target[key] = Store(s, a);
@@ -142,6 +145,8 @@ export function Store(state, actions) {
         case "dispose":
           disposers.forEach(key => disposers[key]());
           target.forEach(key => delete target[key]);
+          computedKeys = [];
+          snapKeys = [];
           break;
         default:
           throw new RangeError(
@@ -155,6 +160,13 @@ export function Store(state, actions) {
       if (name in target) {
         if (name in disposers) {
           disposers[name]();
+          disposers = disposers.filter(key => key !== name);
+        }
+        if (snapKeys.indexOf(name) > -1) {
+          snapKeys = snapKeys.filter(key => key !== name);
+        }
+        if (computedKeys.indexOf(name) > -1) {
+          computedKeys = computedKeys.filter(key => key !== name);
         }
         delete target[name];
         return true;
