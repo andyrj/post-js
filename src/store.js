@@ -1,12 +1,10 @@
 import S from "s-js";
 import * as fastJsonPatch from "fast-json-patch";
 
-function isData(fn) {
-  return fn.toString().startsWith("function data(value)");
-}
-
-function isComputation(fn) {
-  return fn.toString().startsWith("function computation()");
+function isKey(name, keys) {
+  // inefficient check...  we are storing array of keys for this now...
+  //return fn.toString().startsWith("function data(value)");
+  return keys.indexOf(name) > -1;
 }
 
 const arrayMutators = [
@@ -40,7 +38,7 @@ export function Store(state, actions) {
     get: function(target, name) {
       if (name in target) {
         if (typeof target[name] === "function") {
-          if (isData(target[name])) {
+          if (isKey(name, snapKeys)) {
             let val = target[name]();
             if (Array.isArray(val)) {
               arrayMutators.forEach(key => {
@@ -54,7 +52,7 @@ export function Store(state, actions) {
             } else {
               return val;
             }
-          } else if (isComputation(target[name])) {
+          } else if (isKey(name, computedKeys)) {
             return target[name]();
           } else {
             return target[name];
@@ -71,9 +69,9 @@ export function Store(state, actions) {
     set: function(target, name, value) {
       if (name in target) {
         if (typeof target[name] === "function") {
-          if (isData(target[name])) {
+          if (isKey(name, snapKeys)) {
             target[name](value);
-          } else if (isComputation(target[name])) {
+          } else if (isKey(name, computedKeys)) {
             return false;
           }
         } else {
@@ -81,7 +79,7 @@ export function Store(state, actions) {
         }
         return true;
       } else {
-        // breaking from pojo behavior, changes made through apply
+        // breaking from pojo behavior, changes made through apply only
         return false;
       }
     },
