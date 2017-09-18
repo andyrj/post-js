@@ -1,1 +1,1 @@
-export * from "./store.js";
+export { Store, autorun } from "./store";

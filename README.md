@@ -16,7 +16,7 @@ $ npm install --save post-js
 ```
 
 ```js
-import Store, { autorun } from "post-js"
+import { Store, autorun } from "post-js"
 
 const store = Store(
   { // state: first param

@@ -123,7 +123,7 @@ function dispose(store, local) {
   return local;
 }
 
-export default function Store(state, actions) {
+export function Store(state, actions) {
   let local = {
     proxy: undefined,
     computed: [],

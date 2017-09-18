@@ -1,5 +1,5 @@
 import test from "ava";
-import Store, { autorun } from "../src/store";
+import { Store, autorun } from "../src/store";
 
 test("basic first level stores", t => {
   const store = Store(
