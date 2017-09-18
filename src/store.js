@@ -29,26 +29,38 @@ function isKeyConflict(key, store) {
   }
 }
 
+function extendArray(val, theSetter) {
+  const arrHandler = {
+    get: function(target, name) {
+      // wrap mutating functions...
+      if (arrayMutators.indexOf(name) > -1) {
+        return function() {
+          const res = Array.prototype[name].apply(this, arguments);
+          theSetter(target);
+          return res;
+        };
+      }
+      return target[name];
+    }
+  };
+  return new Proxy(val, arrHandler);
+}
+
 export default function Store(state, actions) {
   const store = function() {};
   let computedKeys = [];
-  let snapKeys = [];
+  let observedKeys = [];
+  let unobservedKeys = [];
   let subStoreKeys = [];
   let disposers = {};
   const proxy = new Proxy(store, {
     get: function(target, name) {
       if (name in target) {
         if (typeof target[name] === "function") {
-          if (isKey(name, snapKeys)) {
+          if (isKey(name, observedKeys)) {
             let val = target[name]();
             if (Array.isArray(val)) {
-              arrayMutators.forEach(key => {
-                val[key] = function() {
-                  const res = Array.prototype[key].apply(this, arguments);
-                  target[name](val);
-                  return res;
-                };
-              });
+              val = extendArray(val, target[name]);
               return val;
             } else {
               return val;
@@ -58,6 +70,8 @@ export default function Store(state, actions) {
           } else {
             return target[name];
           }
+        } else {
+          return target[name];
         }
       } else {
         if (name in actions) {
@@ -70,11 +84,12 @@ export default function Store(state, actions) {
     set: function(target, name, value) {
       if (name in target) {
         if (typeof target[name] === "function") {
-          if (isKey(name, snapKeys)) {
+          if (isKey(name, observedKeys)) {
             target[name](value);
           } else if (isKey(name, subStoreKeys)) {
             return false; // should I handle replacing a subStore?
-          } else if (isKey(name, computedKeys)) {
+          } else {
+            //if (isKey(name, computedKeys)) { // missing case catch with this case...
             return false;
           }
         } else {
@@ -90,7 +105,8 @@ export default function Store(state, actions) {
       // we only want for..in loops to operate on state, not actions...
       if (
         computedKeys.indexOf(name) > -1 ||
-        snapKeys.indexOf(name) > -1 ||
+        observedKeys.indexOf(name) > -1 ||
+        unobservedKeys.indexOf(name) > -1 ||
         subStoreKeys.indexOf(name) > -1
       ) {
         return true;
@@ -102,7 +118,8 @@ export default function Store(state, actions) {
       return Reflect.ownKeys(target).filter(k => {
         return (
           computedKeys.indexOf(k) > -1 ||
-          snapKeys.indexOf(k) > -1 ||
+          observedKeys.indexOf(k) > -1 ||
+          unobservedKeys.indexOf(k) > -1 ||
           k === "caller" ||
           k === "prototype" ||
           k === "arguments"
@@ -126,11 +143,11 @@ export default function Store(state, actions) {
       }
       switch (t) {
         case "data":
-          snapKeys.push(key);
           if (opts && opts.observed === false) {
+            unobservedKeys.push(key);
             target[key] = val;
           } else {
-            // default to observable data...
+            observedKeys.push(key);
             target[key] = S.data(val);
           }
           break;
@@ -157,21 +174,19 @@ export default function Store(state, actions) {
           const a = val.actions || {};
           target[key] = Store(s, a);
           disposers[key] = () => {
-            console.log(`disposing key ${key}`);
             target[key]("dispose");
           };
           break;
         case "dispose":
           Object.keys(disposers).forEach(key => {
-            console.log(`disposing key ${key}`);
             disposers[key]();
           });
           Object.keys(target).forEach(key => {
-            console.log(`deleting key ${key}`);
             delete target[key];
           });
           computedKeys = [];
-          snapKeys = [];
+          observedKeys = [];
+          unobservedKeys = [];
           subStoreKeys = [];
           break;
         default:
@@ -189,8 +204,8 @@ export default function Store(state, actions) {
           delete disposers[name];
         }
         delete target[name];
-        if (snapKeys.indexOf(name) > -1) {
-          snapKeys = snapKeys.filter(key => key !== name);
+        if (observedKeys.indexOf(name) > -1) {
+          observedKeys = observedKeys.filter(key => key !== name);
         }
         if (computedKeys.indexOf(name) > -1) {
           computedKeys = computedKeys.filter(key => key !== name);
