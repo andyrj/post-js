@@ -1,0 +1,32 @@
+{
+  "name": "post-js",
+  "version": "0.0.1",
+  "description": "Proxied Observable State Tree - mobx inspired state tree built with s-js and fast-json-patch",
+  "main": "dist/post.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "nyc ava"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andyrj/post-js.git"
+  },
+  "keywords": [
+    "mobx",
+    "s-js",
+    "fast-json-patch",
+    "observable"
+  ],
+  "author": "Andy Johnson",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/andyrj/post-js/issues"
+  },
+  "homepage": "https://github.com/andyrj/post-js#readme",
+  "dependencies": {
+    "fast-json-patch": "^2.0.5",
+    "s-js": "^0.4.5"
+  }
+}
