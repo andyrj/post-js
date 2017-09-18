@@ -11,6 +11,11 @@ The main thing this package does not plan to have support for that is in mobx-st
 * NOTE: test suite is in the works will be aiming for 100% coverage eventually...
 * NOTE: snapshot/patch/restore type functionality are not yet added, but will be shortly... (will be adding example youtube video of redux-devtools integrating with this library once they these are added)
 
+Install
+```
+$ npm install --save post-js
+```
+
 ```js
 import Store, { autorun } from "post-js"
 
