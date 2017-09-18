@@ -7,12 +7,12 @@ function isKey(name, keys) {
   return keys.indexOf(name) > -1;
 }
 
-function isArray(a) {
-  return !!a && a.constructor === Array;
+function isArray(arr) {
+  return !!arr && arr.constructor === Array;
 }
 
-function isObject(a) {
-  return !!a && a.constructor === Object;
+function isObject(obj) {
+  return !!obj && obj.constructor === Object;
 }
 
 const arrayMutators = [
@@ -43,6 +43,7 @@ function extendArray(val, theSetter) {
       // wrap mutating functions...
       if (arrayMutators.indexOf(name) > -1) {
         return function() {
+          // you need to delay the set of this value just like SArray... save mutation to temp first...
           const res = Array.prototype[name].apply(this, arguments);
           theSetter(target);
           return res;
@@ -54,18 +55,108 @@ function extendArray(val, theSetter) {
   return new Proxy(val, arrHandler);
 }
 
+function addData(key, val, opts, store, local) {
+  const unobserved = local.unobserved;
+  const observed = local.observed;
+  if (opts && opts.observed === false) {
+    unobserved.push(key);
+    store[key] = val;
+  } else {
+    observed.push(key);
+    store[key] = S.data(val);
+  }
+}
+
+function addAction(key, val, opts, store, local) {
+  const proxy = local.proxy;
+  const fn = val;
+  store[key] = function() {
+    const actionArgs = arguments;
+    S.freeze(() => {
+      fn.apply(proxy, actionArgs);
+    });
+  };
+}
+
+function addComputed(key, val, opts, store, local) {
+  const proxy = local.proxy;
+  const computed = local.computed;
+  const disposers = local.disposers;
+  computed.push(key);
+  const comp = val.bind(proxy);
+  S.root(dispose => {
+    store[key] = S(comp);
+    disposers[key] = dispose;
+  });
+}
+
+function addStore(key, val, store, local) {
+  const stores = local.stores;
+  const disposers = local.disposers;
+  stores.push(key);
+  const s = val.state || {};
+  const a = val.actions || {};
+  store[key] = Store(s, a);
+  disposers[key] = () => {
+    store[key]("dispose");
+  };
+}
+
+function dispose(store, local) {
+  const disposers = local.disposers;
+  Object.keys(disposers).forEach(key => {
+    disposers[key]();
+  });
+  Object.keys(store).forEach(key => {
+    delete store[key];
+  });
+  const p = local.proxy;
+  local = {
+    proxy: p,
+    computed: [],
+    observed: [],
+    unobserved: [],
+    stores: [],
+    disposers: {}
+  };
+  return local;
+}
+
 export default function Store(state, actions) {
-  const store = function() {};
-  let computedKeys = [];
-  let observedKeys = [];
-  let unobservedKeys = [];
-  let subStoreKeys = [];
-  let disposers = {};
-  const proxy = new Proxy(store, {
+  let local = {
+    proxy: undefined,
+    computed: [],
+    observed: [],
+    unobserved: [],
+    stores: [],
+    disposers: {}
+  };
+  const store = function(t, key, val, opts) {
+    if (key) {
+      isKeyConflict(key, store);
+    }
+
+    if (t === "data") {
+      addData(key, val, opts, store, local);
+    } else if (t === "action") {
+      addAction(key, val, opts, store, local);
+    } else if (t === "computed") {
+      addComputed(key, val, opts, store, local);
+    } else if (t === "store") {
+      addStore(key, val, store, local);
+    } else if (t === "dispose") {
+      local = dispose(store, local);
+    } else {
+      throw new RangeError(
+        "type must be one of the following: data, dispose, action, computed, store"
+      );
+    }
+  };
+  local.proxy = new Proxy(store, {
     get: function(target, name) {
       if (name in target) {
         if (typeof target[name] === "function") {
-          if (isKey(name, observedKeys)) {
+          if (isKey(name, local.observed)) {
             let val = target[name]();
             if (isArray(val)) {
               val = extendArray(val, target[name]);
@@ -73,7 +164,7 @@ export default function Store(state, actions) {
             } else {
               return val;
             }
-          } else if (isKey(name, computedKeys)) {
+          } else if (isKey(name, local.computed)) {
             return target[name]();
           } else {
             return target[name];
@@ -92,9 +183,9 @@ export default function Store(state, actions) {
     set: function(target, name, value) {
       if (name in target) {
         if (typeof target[name] === "function") {
-          if (isKey(name, observedKeys)) {
+          if (isKey(name, local.observed)) {
             target[name](value);
-          } else if (isKey(name, subStoreKeys)) {
+          } else if (isKey(name, local.stores)) {
             return false; // should I handle replacing a subStore?
           } else {
             //if (isKey(name, computedKeys)) { // missing case catch with this case...
@@ -112,10 +203,10 @@ export default function Store(state, actions) {
     has: function(target, name) {
       // we only want for..in loops to operate on state, not actions...
       if (
-        computedKeys.indexOf(name) > -1 ||
-        observedKeys.indexOf(name) > -1 ||
-        unobservedKeys.indexOf(name) > -1 ||
-        subStoreKeys.indexOf(name) > -1
+        local.computed.indexOf(name) > -1 ||
+        local.observed.indexOf(name) > -1 ||
+        local.unobserved.indexOf(name) > -1 ||
+        local.stores.indexOf(name) > -1
       ) {
         return true;
       } else {
@@ -125,101 +216,31 @@ export default function Store(state, actions) {
     ownKeys: function(target) {
       return Reflect.ownKeys(target).filter(k => {
         return (
-          computedKeys.indexOf(k) > -1 ||
-          observedKeys.indexOf(k) > -1 ||
-          unobservedKeys.indexOf(k) > -1 ||
+          local.computed.indexOf(k) > -1 ||
+          local.observed.indexOf(k) > -1 ||
+          local.unobserved.indexOf(k) > -1 ||
           k === "caller" ||
           k === "prototype" ||
           k === "arguments"
         );
       });
     },
-    /* eslint-disable complexity */
-    apply: function(target, context, args) {
-      // function to modify the observable...
-      //store("data", "key", value, {observed=false});
-      //store("action", "key", fn);
-      //store("computed", "key", fn);
-      //store("store", "key", {state: {}, actions: {}});
-      //store("dispose")
-      const t = args[0];
-      const key = args[1];
-      const val = args[2];
-      const opts = args[3];
-      if (key) {
-        isKeyConflict(key, store);
-      }
-      switch (t) {
-        case "data":
-          if (opts && opts.observed === false) {
-            unobservedKeys.push(key);
-            target[key] = val;
-          } else {
-            observedKeys.push(key);
-            target[key] = S.data(val);
-          }
-          break;
-        case "action":
-          const fn = val;
-          target[key] = function() {
-            const actionArgs = arguments;
-            S.freeze(() => {
-              fn.apply(proxy, actionArgs);
-            });
-          };
-          break;
-        case "computed":
-          computedKeys.push(key);
-          const comp = val.bind(proxy);
-          S.root(dispose => {
-            target[key] = S(comp);
-            disposers[key] = dispose;
-          });
-          break;
-        case "store":
-          subStoreKeys.push(key);
-          const s = val.state || {};
-          const a = val.actions || {};
-          target[key] = Store(s, a);
-          disposers[key] = () => {
-            target[key]("dispose");
-          };
-          break;
-        case "dispose":
-          Object.keys(disposers).forEach(key => {
-            disposers[key]();
-          });
-          Object.keys(target).forEach(key => {
-            delete target[key];
-          });
-          computedKeys = [];
-          observedKeys = [];
-          unobservedKeys = [];
-          subStoreKeys = [];
-          break;
-        default:
-          throw new RangeError(
-            "type must be one of the following: data, dispose, action, computed, store"
-          );
-      }
-      /* eslint-enable complexity */
-    },
     deleteProperty: function(target, name) {
       // handle removing observer stuff for this key if needed..
       if (name in target) {
-        if (name in disposers) {
-          disposers[name]();
-          delete disposers[name];
+        if (name in local.disposers) {
+          local.disposers[name]();
+          delete local.disposers[name];
         }
         delete target[name];
-        if (observedKeys.indexOf(name) > -1) {
-          observedKeys = observedKeys.filter(key => key !== name);
+        if (local.observed.indexOf(name) > -1) {
+          local.observed = local.observed.filter(key => key !== name);
         }
-        if (computedKeys.indexOf(name) > -1) {
-          computedKeys = computedKeys.filter(key => key !== name);
+        if (local.computed.indexOf(name) > -1) {
+          local.computed = local.computed.filter(key => key !== name);
         }
-        if (subStoreKeys.indexOf(name) > -1) {
-          subStoreKeys = subStoreKeys.filter(key => key !== name);
+        if (local.stores.indexOf(name) > -1) {
+          local.stores = local.stores.filter(key => key !== name);
         }
         return true;
       } else {
@@ -232,17 +253,17 @@ export default function Store(state, actions) {
   Object.keys(state).forEach(key => {
     const val = state[key];
     if (typeof val === "function") {
-      proxy("computed", key, val);
+      local.proxy("computed", key, val);
     } else if (isObject(val)) {
-      proxy("store", key, { state: val });
+      local.proxy("store", key, { state: val });
     } else {
-      proxy("data", key, val);
+      local.proxy("data", key, val);
     }
   });
 
   Object.keys(actions).forEach(key => {
-    proxy("action", key, actions[key]);
+    local.proxy("action", key, actions[key]);
   });
 
-  return proxy;
+  return local.proxy;
 }
