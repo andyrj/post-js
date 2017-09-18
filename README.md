@@ -2,7 +2,7 @@
 This is a minimalist re-implementation of mobx-state-tree using s-js and fast-json-patch.  Currently this package itself is approx. 1kB min-zipped, deps: s-js(2kB), fast-json-patch(4kB) ~= 7kB vs mobx-state-tree (29kB).  The other benefit would be the performance of s-js, if you compare react / react-mobx to vanilla / surplus(backed by s-js) in the [js-framework-benchmark](https://rawgit.com/krausest/js-framework-benchmark/master/webdriver-ts-results/table.html)
 
 ![js-framework-perf screenshot](https://github.com/andyrj/post-js/raw/master/Screenshot-20170917.png "Rough State Management Overhead Comparison")
-Eventually I will make a better performance comparison between this library and mobx-state-tree but the above screenshot should give you a rough idea of the difference that should be expected in memory use and compute overhead difference.
+Eventually I will make a better performance comparison between this library and mobx-state-tree but the above screenshot should give you a rough idea of the difference that should be expected in memory use and compute overhead.
 
 This package utilizes Proxy, to create a "transparent" pojo-ish wrapper for s-js, so ie and opera mini are unsupported.
 
