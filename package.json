@@ -17,7 +17,7 @@
     "test": "nyc ava",
     "build": "rollup --config rollup.config.prod.js",
     "build:dev": "rollup --config rollup.config.js",
-    "prepublish": "npm run build",
+    "prepublish": "npm run build && npm run test",
     "lint": "eslint --ext .js src/",
     "lint:fix": "eslint --fix --ext .js src/",
     "format": "prettier --write 'src/**/*.js'",
