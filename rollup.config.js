@@ -1,6 +1,6 @@
 export default {
   input: "./src/index.js",
-  name: "post-js",
+  name: "postJs",
   output: {
     file: "./dist/post.js",
     format: "umd"
