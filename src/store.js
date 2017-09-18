@@ -29,10 +29,11 @@ function isKeyConflict(key, store) {
   }
 }
 
-export function Store(state, actions) {
+export default function Store(state, actions) {
   const store = function() {};
   let computedKeys = [];
   let snapKeys = [];
+  let subStoreKeys = [];
   let disposers = {};
   const proxy = new Proxy(store, {
     get: function(target, name) {
@@ -71,6 +72,8 @@ export function Store(state, actions) {
         if (typeof target[name] === "function") {
           if (isKey(name, snapKeys)) {
             target[name](value);
+          } else if (isKey(name, subStoreKeys)) {
+            return false; // should I handle replacing a subStore?
           } else if (isKey(name, computedKeys)) {
             return false;
           }
@@ -85,7 +88,11 @@ export function Store(state, actions) {
     },
     has: function(target, name) {
       // we only want for..in loops to operate on state, not actions...
-      if (computedKeys.indexOf(name) > -1 || snapKeys.indexOf(name) > -1) {
+      if (
+        computedKeys.indexOf(name) > -1 ||
+        snapKeys.indexOf(name) > -1 ||
+        subStoreKeys.indexOf(name) > -1
+      ) {
         return true;
       } else {
         return false;
@@ -145,17 +152,27 @@ export function Store(state, actions) {
           });
           break;
         case "store":
-          snapKeys.push(key);
+          subStoreKeys.push(key);
           const s = val.state || {};
           const a = val.actions || {};
           target[key] = Store(s, a);
-          disposers[key] = () => target[key]("dispose");
+          disposers[key] = () => {
+            console.log(`disposing key ${key}`);
+            target[key]("dispose");
+          };
           break;
         case "dispose":
-          disposers.forEach(key => disposers[key]());
-          target.forEach(key => delete target[key]);
+          Object.keys(disposers).forEach(key => {
+            console.log(`disposing key ${key}`);
+            disposers[key]();
+          });
+          Object.keys(target).forEach(key => {
+            console.log(`deleting key ${key}`);
+            delete target[key];
+          });
           computedKeys = [];
           snapKeys = [];
+          subStoreKeys = [];
           break;
         default:
           throw new RangeError(
@@ -169,15 +186,18 @@ export function Store(state, actions) {
       if (name in target) {
         if (name in disposers) {
           disposers[name]();
-          disposers = disposers.filter(key => key !== name);
+          delete disposers[name];
         }
+        delete target[name];
         if (snapKeys.indexOf(name) > -1) {
           snapKeys = snapKeys.filter(key => key !== name);
         }
         if (computedKeys.indexOf(name) > -1) {
           computedKeys = computedKeys.filter(key => key !== name);
         }
-        delete target[name];
+        if (subStoreKeys.indexOf(name) > -1) {
+          subStoreKeys = subStoreKeys.filter(key => key !== name);
+        }
         return true;
       } else {
         return false;
