@@ -8,7 +8,6 @@ This package utilizes Proxy, to create a "transparent" pojo-ish wrapper for s-js
 
 The main thing this package does not plan to have support for that is in mobx-state-tree would be the runtime type system.
 
-* NOTE: test suite is in the works will be aiming for 100% coverage eventually...
 * NOTE: snapshot/patch/restore type functionality are not yet added, but will be shortly... (will be adding example youtube video of redux-devtools integrating with this library once that these are added)
 
 Install
