@@ -20,7 +20,7 @@ $ npm install --save post-js
 import Store, { autorun } from "post-js"
 
 const store = Store(
-  {
+  { // state: first param
     counter: 0, // by default primitives passed in will be made observable
     first: "Andy",
     last: "Johnson",
@@ -32,11 +32,24 @@ const store = Store(
       return `${this.fullName}: ${this.counter}`;
     }
   },
-  { // second param to store is the actions object, all keys are turned into actions...
+  { // actions: second param to store is the actions object, all keys are turned into actions...
     updateData(firstName, lastName, count) {
       this.counter = count;
       this.first = firstName;
       this.last = lastName;
+    }
+  }
+);
+
+// after instantiation you can update your store via calling it as a function...
+store("data", "test", "123");  // this will add the key { test: "123" }, to your stores state...
+store("action", "updateTest", function(str) { this.test = str; }); // this adds an action to your store
+store("computed", "testCount", function() { return `${this.test}: ${this.counter}`; }) // addes computed value
+/* nested store - recursive structure... */
+store("store", "nested", { 
+  state: { foo: "BAR" }, 
+  actions: { 
+    fizz: function(){ this.foo = "buzz"; } 
     }
   }
 );
@@ -50,13 +63,15 @@ autorun(() => {
   console.log(store.fullCount);
 });
 
-// updates are "atomic" in in that the changes are batched like actions in mobx...
+// actions are "atomic" in in that the changes are batched like actions in mobx...
 store.updateData("Jon", "Doe", 10);
 
 // will log all keys excluding actions
 for (let v in store) {
   console.log(`${v}: ${v in store}`);
 }
+
+store("dispose"); // disposes of observables and delete's all keys for this store and all nested stores...
 
 ```
 
