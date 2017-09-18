@@ -290,6 +290,9 @@ test("init state", t => {
     {
       str: "test",
       arr: [1],
+      nested: {
+        test: 1
+      },
       comp: function() {
         return `${this.str}-${this.arr[0]}`;
       }
@@ -300,4 +303,5 @@ test("init state", t => {
   t.is(store.arr[0], 1);
   t.is(store.str, "test");
   t.is(store.comp, "test-1");
+  t.is(store.nested.test, 1);
 });

@@ -7,6 +7,14 @@ function isKey(name, keys) {
   return keys.indexOf(name) > -1;
 }
 
+function isArray(a) {
+  return !!a && a.constructor === Array;
+}
+
+function isObject(a) {
+  return !!a && a.constructor === Object;
+}
+
 const arrayMutators = [
   "splice",
   "push",
@@ -59,7 +67,7 @@ export default function Store(state, actions) {
         if (typeof target[name] === "function") {
           if (isKey(name, observedKeys)) {
             let val = target[name]();
-            if (Array.isArray(val)) {
+            if (isArray(val)) {
               val = extendArray(val, target[name]);
               return val;
             } else {
@@ -223,23 +231,12 @@ export default function Store(state, actions) {
   // attach data and computations to proxy...
   Object.keys(state).forEach(key => {
     const val = state[key];
-    const t = typeof val;
-    switch (t) {
-      case "function":
-        // computed
-        proxy("computed", key, val);
-        break;
-      case "object":
-        if (!Array.isArray(state[key])) {
-          // nested store
-          proxy("store", key, { state: val });
-          break;
-        }
-      // fallthrough to add array as data...
-      default:
-        // add rest as data...
-        proxy("data", key, val);
-        break;
+    if (typeof val === "function") {
+      proxy("computed", key, val);
+    } else if (isObject(val)) {
+      proxy("store", key, { state: val });
+    } else {
+      proxy("data", key, val);
     }
   });
 
