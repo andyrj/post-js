@@ -23,6 +23,14 @@ export function autorun(thunk) {
   S.root(() => S(thunk));
 }
 
+function isKeyConflict(key, store) {
+  if (key in store) {
+    throw new RangeError(
+      `actions: ${key} conflicts with a key already present in state`
+    );
+  }
+}
+
 export function Store(state, actions) {
   const store = function() {};
   let computedKeys = [];
@@ -108,6 +116,9 @@ export function Store(state, actions) {
       const key = args[1];
       const val = args[2];
       const opts = args[3];
+      if (key) {
+        isKeyConflict(key, store);
+      }
       switch (t) {
         case "data":
           snapKeys.push(key);
@@ -178,7 +189,6 @@ export function Store(state, actions) {
 
   // attach data and computations to proxy...
   Object.keys(state).forEach(key => {
-    //proxy[key] = state[key];
     const val = state[key];
     const t = typeof val;
     switch (t) {
