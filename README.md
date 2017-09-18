@@ -43,13 +43,12 @@ const store = Store(
 
 // equivalent to mobx autorun...  will be adding a wrapper for this to better
 // imitate the mobx api shortly...
-S.root(() => {
-  S(() => {
-    console.log(store.fullName);
-  });
-  S(() => {
-    console.log(store.fullCount);
-  });
+autorun(() => {
+  console.log(store.fullName);
+});
+
+autorun(() => {
+  console.log(store.fullCount);
 });
 
 // updates are "atomic" in in that the changes are batched like actions in mobx...

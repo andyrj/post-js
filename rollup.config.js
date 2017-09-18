@@ -6,5 +6,10 @@ export default {
     format: "umd"
   },
   sourcemap: true,
-  plugins: []
+  plugins: [],
+  globals: {
+    "s-js": "S",
+    "fast-json-patch": "fastJsonPatch"
+  },
+  external: ["s-js", "fast-json-patch"]
 };

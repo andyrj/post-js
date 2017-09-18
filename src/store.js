@@ -19,6 +19,10 @@ const arrayMutators = [
   "reverse"
 ];
 
+export function autorun(thunk) {
+  S.root(() => S(thunk));
+}
+
 export function Store(state, actions) {
   const store = function() {};
   const stateKeys = [];
