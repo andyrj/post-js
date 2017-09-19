@@ -178,6 +178,8 @@ export function Store(state, actions) {
       addComputed(key, val, opts, store, local);
     } else if (t === "store") {
       addStore(key, val, store, local);
+    } else if (t === "snapshot") {
+      return local.snapshot();
     } else if (t === "dispose") {
       local = dispose(store, local);
     } else {
