@@ -122,6 +122,8 @@ function dispose(store, local) {
     unobserved: [],
     stores: [],
     actions: {},
+    snapshot: undefined,
+    snapshotDisposer: undefined,
     disposers: {}
   };
   return local;
@@ -159,6 +161,8 @@ export function Store(state, actions) {
     unobserved: [],
     stores: [],
     actions,
+    snapshot: undefined,
+    snapshotDisposer: undefined,
     disposers: {}
   };
   const store = function(t, key, val, opts) {
@@ -295,6 +299,39 @@ export function Store(state, actions) {
 
   Object.keys(actions).forEach(key => {
     local.proxy("action", key, actions[key]);
+  });
+
+  // add computed snapshot
+  S.root(dispose => {
+    local.snapshotDisposer = dispose;
+    local.snapshot = S(() => {
+      let snap = {};
+      let stateKeys = local.observed.concat(local.unobserved); // only interested in state, not computed/actions
+      for (let key in stateKeys) {
+        snap[key] = local.proxy[key];
+      }
+      // also get the snapshots for nested stores...
+      for (let store in local.stores) {
+        snap[store] = local.proxy[store]("snapshot");
+      }
+      return snap;
+    });
+  });
+
+  const patchNotifiers = S.data([]); // filled with "patch => {}""
+  let lastSnap;
+  autorun(() => {
+    if (patchNotifiers.length === 0) {
+      lastSnap = local.snapshot(); // if no one is watching for patches don't generate them...
+    } else {
+      if (patchNotifiers().length > 0) {
+        let nextSnap = local.snapshot();
+        const patch = fastJsonPatch.compare(lastSnap, nextSnap);
+        patchNotifiers.forEach(notify => notify(patch));
+        // update last snap...
+        lastSnap = nextSnap;
+      }
+    }
   });
 
   return local.proxy;
