@@ -217,6 +217,7 @@ export function Store(state, actions) {
           local.computed.indexOf(k) > -1 ||
           local.observed.indexOf(k) > -1 ||
           local.unobserved.indexOf(k) > -1 ||
+          local.stores.indexOf(k) > -1 ||
           k === "caller" ||
           k === "prototype" ||
           k === "arguments"
