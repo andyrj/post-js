@@ -186,10 +186,7 @@ export function Store(state, actions) {
         if (typeof target[name] === "function") {
           if (isKey(name, local.observed)) {
             target[name](value);
-          } else if (isKey(name, local.stores)) {
-            return false; // should I handle replacing a subStore?
           } else {
-            //if (isKey(name, computedKeys)) { // missing case catch with this case...
             return false;
           }
         } else {
