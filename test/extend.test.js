@@ -21,15 +21,13 @@ test("add computed via pojo set", t => {
   t.is(store.fullName, "Andy Johnson");
 });
 
-test("add action via pojo set", t => {
+test("add action via pojo throws", t => {
   const store = Store();
-  store.foo = "BAR";
-  store.fizzbuzz = function(stuff) {
-    this.foo = stuff;
-  };
-  t.is(store.foo, "BAR");
-  store.fizzbuzz("test");
-  t.is(store.foo, "test");
+  t.throws(() => {
+    store.fizzbuzz = function(stuff) {
+      this.foo = stuff;
+    };
+  });
 });
 
 test("add store via pojo set", t => {

@@ -132,7 +132,10 @@ function addToStore(name, value, p) {
     if (value.length === 0) {
       p("computed", name, value);
     } else {
-      p("action", name, value);
+      //p("action", name, value);
+      throw new RangeError(
+        "Cannot add actions implicitly, please call store api directly"
+      );
     }
   } else if (
     Array.isArray(value) ||
@@ -215,12 +218,8 @@ export function Store(state, actions) {
           } else if (isKey(name, local.unobserved)) {
             target[name] = value;
           } else {
-            const bAction = Object.keys(local.actions).indexOf(name) > -1;
-            if (!bAction) {
-              console.log("GOT HERE?!?!?! WTF...");
-              local.disposers[name]();
-              delete local.disposers[name];
-            }
+            local.disposers[name]();
+            delete local.disposers[name];
             delete target[name];
             return addToStore(name, value, local.proxy);
           }
