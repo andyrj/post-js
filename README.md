@@ -63,8 +63,20 @@ autorun(() => {
   console.log(store.fullCount);
 });
 
+// you can register to receive json patches
+const fn = (patches) => console.log(patches);
+store("register", fn);
+// you can also unregister from the patch stream...
+store("unregister", fn);
+
 // actions are "atomic" in in that the changes are batched like actions in mobx...
 store.updateData("Jon", "Doe", 10);
+
+// you can retrieve the current snapshot of a store
+// includes all observed/unobserved data and nested stores, skips computed/actions...
+// haven't decided what to do with functions observed/unobserved stored in the tree...
+// we could fn.toString() in snapshot/patch and in apply eval(strFn)...  but I'm hesitant to do so...
+let snap = store("snapshot");
 
 // will log all keys excluding actions
 for (let v in store) {

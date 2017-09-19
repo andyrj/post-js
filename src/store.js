@@ -163,8 +163,10 @@ export function Store(state, actions) {
     actions,
     snapshot: undefined,
     snapshotDisposer: undefined,
+    registered: S.data([]), // fills with "patch => {}""
     disposers: {}
   };
+  /* eslint-disable complexity */
   const store = function(t, key, val, opts) {
     if (key) {
       isKeyConflict(key, store);
@@ -180,14 +182,31 @@ export function Store(state, actions) {
       addStore(key, val, store, local);
     } else if (t === "snapshot") {
       return local.snapshot();
+    } else if (t === "register") {
+      // overloading use of key... not monomorphic for sure lol...
+      let reged = local.registered();
+      reged.push(key);
+      local.registered(reged);
+    } else if (t === "unregister") {
+      let reged = local.registered();
+      let index = reged.indexOf(key);
+      if (index > -1) {
+        reged.splice(index, 1);
+      } else {
+        throw new RangeError(
+          "function passed to unregister was not previously registered..."
+        );
+      }
+      local.registered(reged);
     } else if (t === "dispose") {
       local = dispose(store, local);
     } else {
       throw new RangeError(
-        "type must be one of the following: data, dispose, action, computed, store"
+        "type must be one of the following: data, dispose, action, computed, store, snapshot, register, unregister"
       );
     }
   };
+  /* eslint-enable complexity */
   local.proxy = new Proxy(store, {
     get: function(target, name) {
       if (name in target) {
@@ -320,19 +339,16 @@ export function Store(state, actions) {
     });
   });
 
-  const patchNotifiers = S.data([]); // filled with "patch => {}""
   let lastSnap;
   autorun(() => {
-    if (patchNotifiers.length === 0) {
+    if (local.registered().length === 0) {
       lastSnap = local.snapshot(); // if no one is watching for patches don't generate them...
     } else {
-      if (patchNotifiers().length > 0) {
-        let nextSnap = local.snapshot();
-        const patch = fastJsonPatch.compare(lastSnap, nextSnap);
-        patchNotifiers.forEach(notify => notify(patch));
-        // update last snap...
-        lastSnap = nextSnap;
-      }
+      let nextSnap = local.snapshot();
+      const patch = fastJsonPatch.compare(lastSnap, nextSnap);
+      local.registered().forEach(notify => notify(patch));
+      // update last snap...
+      lastSnap = nextSnap;
     }
   });
 
