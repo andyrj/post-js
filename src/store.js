@@ -217,6 +217,7 @@ export function Store(state, actions) {
           } else {
             const bAction = Object.keys(local.actions).indexOf(name) > -1;
             if (!bAction) {
+              console.log("GOT HERE?!?!?! WTF...");
               local.disposers[name]();
               delete local.disposers[name];
             }
