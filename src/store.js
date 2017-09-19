@@ -68,10 +68,10 @@ function addData(key, val, opts, store, local) {
   }
 }
 
-function addAction(key, val, opts, store, local) {
+function addAction(key, val, opts, local) {
   const proxy = local.proxy;
   const fn = val;
-  store[key] = function() {
+  local.actions[key] = function() {
     const actionArgs = arguments;
     S.freeze(() => {
       fn.apply(proxy, actionArgs);
@@ -111,6 +111,9 @@ function dispose(store, local) {
   Object.keys(store).forEach(key => {
     delete store[key];
   });
+  Object.keys(local.actions).forEach(key => {
+    delete local.actions[key];
+  });
   const p = local.proxy;
   local = {
     proxy: p,
@@ -118,18 +121,41 @@ function dispose(store, local) {
     observed: [],
     unobserved: [],
     stores: [],
+    actions: {},
     disposers: {}
   };
   return local;
 }
 
+function addToStore(name, value, p) {
+  if (typeof value === "function") {
+    if (value.length === 0) {
+      p("computed", name, value);
+    } else {
+      p("action", name, value);
+    }
+  } else if (
+    Array.isArray(value) ||
+    typeof value === "number" ||
+    typeof value === "string"
+  ) {
+    p("data", name, value);
+  } else {
+    p("store", name, { state: value });
+  }
+  return true;
+}
+
 export function Store(state, actions) {
+  state = state || {};
+  actions = actions || {};
   let local = {
     proxy: undefined,
     computed: [],
     observed: [],
     unobserved: [],
     stores: [],
+    actions,
     disposers: {}
   };
   const store = function(t, key, val, opts) {
@@ -140,7 +166,7 @@ export function Store(state, actions) {
     if (t === "data") {
       addData(key, val, opts, store, local);
     } else if (t === "action") {
-      addAction(key, val, opts, store, local);
+      addAction(key, val, opts, local);
     } else if (t === "computed") {
       addComputed(key, val, opts, store, local);
     } else if (t === "store") {
@@ -174,8 +200,8 @@ export function Store(state, actions) {
           return target[name];
         }
       } else {
-        if (name in actions) {
-          return actions[name];
+        if (name in local.actions) {
+          return local.actions[name];
         } else {
           return undefined;
         }
@@ -186,20 +212,27 @@ export function Store(state, actions) {
         if (typeof target[name] === "function") {
           if (isKey(name, local.observed)) {
             target[name](value);
+          } else if (isKey(name, local.unobserved)) {
+            target[name] = value;
           } else {
-            return false;
+            const bAction = Object.keys(local.actions).indexOf(name) > -1;
+            if (!bAction) {
+              local.disposers[name]();
+              delete local.disposers[name];
+            }
+            delete target[name];
+            return addToStore(name, value, local.proxy);
           }
         } else {
           target[name] = value;
         }
         return true;
       } else {
-        // breaking from pojo behavior, changes made through apply only
-        return false;
+        return addToStore(name, value, local.proxy);
       }
     },
     has: function(target, name) {
-      // we only want for..in loops to operate on state, not actions...
+      // we only want for..in loops to enumerate data/computed, not actions
       if (
         local.computed.indexOf(name) > -1 ||
         local.observed.indexOf(name) > -1 ||
@@ -225,13 +258,13 @@ export function Store(state, actions) {
       });
     },
     deleteProperty: function(target, name) {
-      // handle removing observer stuff for this key if needed..
-      if (name in target) {
+      if (name in local.actions) {
+        return delete local.actions[name];
+      } else if (name in target) {
         if (name in local.disposers) {
           local.disposers[name]();
           delete local.disposers[name];
         }
-        delete target[name];
         if (local.observed.indexOf(name) > -1) {
           local.observed = local.observed.filter(key => key !== name);
         }
@@ -241,7 +274,7 @@ export function Store(state, actions) {
         if (local.stores.indexOf(name) > -1) {
           local.stores = local.stores.filter(key => key !== name);
         }
-        return true;
+        return delete target[name];
       } else {
         return false;
       }
