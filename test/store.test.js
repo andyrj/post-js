@@ -5,7 +5,8 @@ test("basic first level stores", t => {
   const store = Store(
     {
       test: "123",
-      foo: "BAR"
+      foo: "BAR",
+      test1: null
     },
     {}
   );
@@ -18,6 +19,8 @@ test("basic first level stores", t => {
 
   store.foo = "fizzbuzz";
   t.is(store.foo, "fizzbuzz");
+
+  t.is(store.test1, null);
 });
 
 test("nested stores", t => {

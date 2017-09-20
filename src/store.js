@@ -316,11 +316,17 @@ export function Store(state, actions) {
     } else if (
       Array.isArray(val) ||
       typeof val === "number" ||
-      typeof val === "string"
+      typeof val === "string" ||
+      typeof val === "boolean" ||
+      typeof val === "undefined"
     ) {
       local.proxy("data", key, val);
     } else {
-      local.proxy("store", key, { state: val });
+      if (val != null) {
+        local.proxy("store", key, { state: val });
+      } else {
+        local.proxy("data", key, val);
+      }
     }
   });
 
