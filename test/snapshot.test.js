@@ -1,6 +1,7 @@
 import test from "ava";
+import { Store, autorun } from "../src/store";
 
 test("creates snapshots", t => {
-  const store = store({ test: 1 });
+  const store = Store({ test: 1 });
   t.deepEqual(store("snapshot"), { test: 1 });
 });

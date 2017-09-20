@@ -337,7 +337,6 @@ export function Store(state, actions) {
       local.stores.forEach(store => {
         snap[store] = local.proxy[store]("snapshot");
       });
-      console.log(snap);
       return snap;
     });
   });
