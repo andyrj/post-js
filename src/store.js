@@ -313,10 +313,14 @@ export function Store(state, actions) {
     const val = state[key];
     if (typeof val === "function") {
       local.proxy("computed", key, val);
-    } else if (typeof val === "object" && !Array.isArray(val)) {
-      local.proxy("store", key, { state: val });
-    } else {
+    } else if (
+      Array.isArray(val) ||
+      typeof val === "number" ||
+      typeof val === "string"
+    ) {
       local.proxy("data", key, val);
+    } else {
+      local.proxy("store", key, { state: val });
     }
   });
 
