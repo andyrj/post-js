@@ -25,3 +25,20 @@ test("generates patches", t => {
   t.is(count, 1);
   t.throws(() => store("unregister", patchHandler));
 });
+
+test("apply patch and snapshots", t => {
+  const store = Store({ test: 1 });
+  const patches = [];
+  function patchHandler(patch) {
+    patches.push(patch);
+  }
+  const initSnap = store("snapshot");
+  store("register", patchHandler);
+  store.test = 2;
+  const patchToApply = patches.pop();
+  store("unregister", patchHandler);
+  store("apply", patchToApply);
+  t.is(store.test, 2);
+  store("restore", initSnap);
+  t.is(store.test, 1);
+});
