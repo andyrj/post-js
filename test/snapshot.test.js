@@ -15,10 +15,13 @@ test("generates patches", t => {
   const store = Store({ test: 1 });
   let count = 0;
   function patchHandler(patch) {
-    console.log(patch);
     count++;
   }
   store("register", patchHandler);
   store.test = 10;
   t.is(count, 1);
+  store("unregister", patchHandler);
+  store.test = 1;
+  t.is(count, 1);
+  t.throws(() => store("unregister", patchHandler));
 });
