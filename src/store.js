@@ -7,6 +7,7 @@ function isKey(name, keys) {
   return keys.indexOf(name) > -1;
 }
 
+/*
 function isArray(arr) {
   return !!arr && arr.constructor === Array;
 }
@@ -14,6 +15,7 @@ function isArray(arr) {
 function isObject(obj) {
   return !!obj && obj.constructor === Object;
 }
+*/
 
 const arrayMutators = [
   "splice",
@@ -213,7 +215,7 @@ export function Store(state, actions) {
         if (typeof target[name] === "function") {
           if (isKey(name, local.observed)) {
             let val = target[name]();
-            if (isArray(val)) {
+            if (Array.isArray(val)) {
               val = extendArray(val, target[name]);
               return val;
             } else {
@@ -311,7 +313,7 @@ export function Store(state, actions) {
     const val = state[key];
     if (typeof val === "function") {
       local.proxy("computed", key, val);
-    } else if (isObject(val)) {
+    } else if (typeof val === "object" && !Array.isArray(val)) {
       local.proxy("store", key, { state: val });
     } else {
       local.proxy("data", key, val);
@@ -332,9 +334,9 @@ export function Store(state, actions) {
         snap[key] = local.proxy[key];
       }
       // also get the snapshots for nested stores...
-      for (let store in local.stores) {
+      local.stores.forEach(store => {
         snap[store] = local.proxy[store]("snapshot");
-      }
+      });
       return snap;
     });
   });

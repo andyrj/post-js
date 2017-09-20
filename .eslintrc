@@ -55,7 +55,7 @@
       2, 5
     ],
     "max-nested-callbacks": [
-      2, 2
+      2, 3
     ],
     "smells/no-switch": 0,
     "smells/no-complex-switch-case": 0,
