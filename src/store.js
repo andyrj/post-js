@@ -159,6 +159,12 @@ function addToStore(name, value, p) {
   return true;
 }
 
+function restore(snapshot, local) {
+  Object.keys(snapshot).forEach(key => {
+    local.proxy[key] = snapshot[key];
+  });
+}
+
 export function Store(state, actions) {
   state = state || {};
   actions = actions || {};
@@ -206,11 +212,17 @@ export function Store(state, actions) {
         );
       }
       local.registered(reged);
+    } else if (t === "apply") {
+      // apply a patch store("apply", patch)
+      restore(fastJsonPatch.applyPatch(local.snapshot, key), local);
+    } else if (t === "restore") {
+      // restore a snapshot... store("restore", snapshot)
+      restore(key, local)
     } else if (t === "dispose") {
       local = dispose(store, local);
     } else {
       throw new RangeError(
-        "type must be one of the following: data, dispose, action, computed, store, snapshot, register, unregister"
+        "type must be one of the following: data, dispose, action, computed, store, snapshot, register, unregister, apply, restore"
       );
     }
   };
