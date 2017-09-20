@@ -213,10 +213,8 @@ export function Store(state, actions) {
       }
       local.registered(reged);
     } else if (t === "apply") {
-      // apply a patch store("apply", patch)
       restore(fastJsonPatch.applyPatch(local.snapshot, key), local);
     } else if (t === "restore") {
-      // restore a snapshot... store("restore", snapshot)
       restore(key, local);
     } else if (t === "dispose") {
       local = dispose(store, local);
