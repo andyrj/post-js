@@ -144,7 +144,11 @@ function addToStore(name, value, p) {
   } else if (
     Array.isArray(value) ||
     typeof value === "number" ||
-    typeof value === "string"
+    typeof value === "string" ||
+    typeof value === "boolean" ||
+    typeof value === "symbol" ||
+    value === null ||
+    value === undefined
   ) {
     p("data", name, value);
   } else {
@@ -311,23 +315,7 @@ export function Store(state, actions) {
   // attach data and computations to proxy...
   Object.keys(state).forEach(key => {
     const val = state[key];
-    if (typeof val === "function") {
-      local.proxy("computed", key, val);
-    } else if (
-      Array.isArray(val) ||
-      typeof val === "number" ||
-      typeof val === "string" ||
-      typeof val === "boolean" ||
-      typeof val === "undefined"
-    ) {
-      local.proxy("data", key, val);
-    } else {
-      if (val != null) {
-        local.proxy("store", key, { state: val });
-      } else {
-        local.proxy("data", key, val);
-      }
-    }
+    addToStore(key, val, local.proxy);
   });
 
   Object.keys(actions).forEach(key => {

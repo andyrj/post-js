@@ -6,7 +6,10 @@ test("basic first level stores", t => {
     {
       test: "123",
       foo: "BAR",
-      test1: null
+      test1: null,
+      sym: Symbol(),
+      b: true,
+      u: undefined
     },
     {}
   );
@@ -21,6 +24,9 @@ test("basic first level stores", t => {
   t.is(store.foo, "fizzbuzz");
 
   t.is(store.test1, null);
+  t.is(typeof store.sym === "symbol", true);
+  t.is(store.b, true);
+  t.is(store.u, undefined);
 });
 
 test("nested stores", t => {
