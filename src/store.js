@@ -348,7 +348,9 @@ export function Store(state, actions) {
     } else {
       let nextSnap = local.snapshot();
       const patch = fastJsonPatch.compare(lastSnap, nextSnap);
-      local.registered().forEach(notify => notify(patch));
+      if (patch.length > 0) {
+        local.registered().forEach(notify => notify(patch));
+      }
       // update last snap...
       lastSnap = nextSnap;
     }
