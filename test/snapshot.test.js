@@ -42,3 +42,16 @@ test("apply patch and snapshots", t => {
   store("restore", initSnap);
   t.is(store.test, 1);
 });
+
+test("restore snapshot with nested store", t => {
+  const store = Store({ nested: { test: 1 } });
+  const initSnap = store("snapshot");
+  store.nested.test = 10;
+  t.is(store.nested.test, 10);
+  store("restore", initSnap);
+  t.is(store.nested.test, 1);
+});
+
+test("restoring snapshot leaves patch listeners in tact", t => {
+  t.is(false, true);
+});
