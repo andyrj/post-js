@@ -161,7 +161,11 @@ function addToStore(name, value, p) {
 
 function restore(snapshot, local) {
   Object.keys(snapshot).forEach(key => {
-    local.proxy[key] = snapshot[key];
+    if (local.stores.indexOf(key) > -1) {
+      local.proxy[key]("restore", snapshot[key]);
+    } else {
+      local.proxy[key] = snapshot[key];
+    }
   });
 }
 

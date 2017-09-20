@@ -53,5 +53,30 @@ test("restore snapshot with nested store", t => {
 });
 
 test("restoring snapshot leaves patch listeners in tact", t => {
-  t.is(false, true);
+  let rootPatch;
+  let rootPatchCount = 0;
+  const patchHandler = patch => {
+    rootPatch = patch;
+    rootPatchCount++;
+  };
+  let nestedPatch;
+  let nestedPatchCount = 0;
+  const nestedPatchHandler = patch => {
+    nestedPatch = patch;
+    nestedPatchCount++;
+  };
+  const store = Store({ nested: { test: 1 } });
+  const initSnap = store("snapshot");
+  store("register", patchHandler);
+  store.nested("register", nestedPatchHandler);
+  store.nested.test = 10;
+  t.is(store.nested.test, 10);
+  store("restore", initSnap);
+  t.is(store.nested.test, 1);
+  store.nested.test = 2;
+  t.is(store.nested.test, 2);
+  t.is(rootPatchCount, 3);
+  t.is(nestedPatchCount, 3);
+  t.notThrows(() => store("unregister", patchHandler));
+  t.notThrows(() => store.nested("unregister", nestedPatchHandler));
 });
