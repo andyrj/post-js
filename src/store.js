@@ -330,13 +330,14 @@ export function Store(state, actions) {
     local.snapshot = S(() => {
       let snap = {};
       let stateKeys = local.observed.concat(local.unobserved); // only interested in state, not computed/actions
-      for (let key in stateKeys) {
+      stateKeys.forEach(key => {
         snap[key] = local.proxy[key];
-      }
+      });
       // also get the snapshots for nested stores...
       local.stores.forEach(store => {
         snap[store] = local.proxy[store]("snapshot");
       });
+      console.log(snap);
       return snap;
     });
   });
