@@ -217,7 +217,7 @@ export function Store(state, actions) {
       restore(fastJsonPatch.applyPatch(local.snapshot, key), local);
     } else if (t === "restore") {
       // restore a snapshot... store("restore", snapshot)
-      restore(key, local)
+      restore(key, local);
     } else if (t === "dispose") {
       local = dispose(store, local);
     } else {
