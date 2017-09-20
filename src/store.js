@@ -116,6 +116,8 @@ function dispose(store, local) {
   Object.keys(local.actions).forEach(key => {
     delete local.actions[key];
   });
+  // dispose of snapshot generator
+  local.snapshotDisposer();
   const p = local.proxy;
   local = {
     proxy: p,
