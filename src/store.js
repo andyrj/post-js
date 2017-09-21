@@ -1,5 +1,5 @@
 import S from "s-js";
-import * as fastJsonPatch from "fast-json-patch";
+import * as jsonpatch from "fast-json-patch";
 
 function isKey(name, keys) {
   // inefficient check...  we are storing array of keys for this now...
@@ -217,7 +217,7 @@ export function Store(state, actions) {
       }
       local.registered(reged);
     } else if (t === "apply") {
-      restore(fastJsonPatch.applyPatch(local.snapshot, key), local);
+      restore(jsonpatch.applyPatch(local.snapshot, key), local);
     } else if (t === "restore") {
       restore(key, local);
     } else if (t === "dispose") {
@@ -361,7 +361,7 @@ export function Store(state, actions) {
       lastSnap = local.snapshot(); // if no one is watching for patches don't generate them...
     } else {
       let nextSnap = local.snapshot();
-      const patch = fastJsonPatch.compare(lastSnap, nextSnap);
+      const patch = jsonpatch.compare(lastSnap, nextSnap);
       if (patch.length > 0) {
         local.registered().forEach(notify => notify(patch));
       }

@@ -9,7 +9,7 @@ export default {
   plugins: [],
   globals: {
     "s-js": "S",
-    "fast-json-patch": "fastJsonPatch"
+    "fast-json-patch": "jsonpatch"
   },
   external: ["s-js", "fast-json-patch"]
 };

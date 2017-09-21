@@ -11,7 +11,7 @@ export default {
   plugins: [minify({ comments: false })],
   globals: {
     "s-js": "S",
-    "fast-json-patch": "fastJsonPatch"
+    "fast-json-patch": "jsonpatch"
   },
   external: ["s-js", "fast-json-patch"]
 };
