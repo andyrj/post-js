@@ -1,14 +1,11 @@
 # post-js (Proxied Observable State Tree)
-This is a minimalist re-implementation of mobx-state-tree using s-js and fast-json-patch.  Currently this package itself is approx. 1kB min-zipped, deps: s-js(2kB), fast-json-patch(4kB) ~= 7kB vs mobx-state-tree (29kB).  The other benefit would be the performance of s-js, if you compare react / react-mobx to vanilla / surplus(backed by s-js) in the [js-framework-benchmark](https://rawgit.com/krausest/js-framework-benchmark/master/webdriver-ts-results/table.html)
-
-![js-framework-perf screenshot](https://github.com/andyrj/post-js/raw/master/Screenshot-20170917.png "Rough State Management Overhead Comparison")
-Eventually I will make a better performance comparison between this library and mobx-state-tree but the above screenshot should give you a rough idea of the difference that should be expected in memory use and compute overhead.
+*WIP* This aims to be a a minimalist re-implementation of mobx-state-tree, currently depending on s-js and fast-json-patch.  I plan to remove these two dependencies as fast-json-patch pulls in some large dependencies, and if I get rid of s-js as a dependency I can get rid of some strange cases where equality gets screwed up storeing state in functions instead of just accessing via proxy.
 
 This package utilizes Proxy, to create a "transparent" pojo-ish wrapper for s-js, so ie and opera mini are unsupported.
 
 The main thing this package does not plan to have support for that is in mobx-state-tree would be the runtime type system.
 
-* NOTE: snapshot/patch/restore type functionality are not yet added, but will be shortly... (will be adding example youtube video of redux-devtools integrating with this library once that these are added)
+Working on this is not high on my priorities and I wouldn't suggest anyone use this in any real way, it is still just an experiment.
 
 Install
 ```
