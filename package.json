@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "test": "nyc ava",
-    "test:cov": "nyc report --reporter=html",
+    "test:cov": "npm run test && nyc report --reporter=html",
     "build": "rollup --config rollup.config.prod.js",
     "build:dev": "rollup --config rollup.config.js",
     "prepublish": "npm run build && npm run test",
