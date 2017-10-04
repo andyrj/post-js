@@ -1,21 +1,8 @@
 import S from "s-js";
-import * as jsonpatch from "fast-json-patch";
 
 function isKey(name, keys) {
-  // inefficient check...  we are storing array of keys for this now...
-  //return fn.toString().startsWith("function data(value)");
   return keys.indexOf(name) > -1;
 }
-
-/*
-function isArray(arr) {
-  return !!arr && arr.constructor === Array;
-}
-
-function isObject(obj) {
-  return !!obj && obj.constructor === Object;
-}
-*/
 
 const arrayMutators = [
   "splice",
@@ -138,7 +125,6 @@ function addToStore(name, value, p) {
     if (value.length === 0) {
       p("computed", name, value);
     } else {
-      //p("action", name, value);
       throw new RangeError(
         "Cannot add actions implicitly, please call store api directly"
       );
@@ -199,7 +185,10 @@ export function Store(state, actions) {
     } else if (t === "store") {
       addStore(key, val, store, local);
     } else if (t === "snapshot") {
-      return local.snapshot();
+      return {
+        state: local.snapshot(),
+        unobserved: local.unobserved
+      };
     } else if (t === "register") {
       // overloading use of key... not monomorphic for sure lol...
       let reged = local.registered();
@@ -217,7 +206,7 @@ export function Store(state, actions) {
       }
       local.registered(reged);
     } else if (t === "apply") {
-      restore(jsonpatch.applyPatch(local.snapshot, key), local);
+      //restore(jsonpatch.applyPatch(local.snapshot, key), local);
     } else if (t === "restore") {
       restore(key, local);
     } else if (t === "dispose") {
@@ -361,10 +350,12 @@ export function Store(state, actions) {
       lastSnap = local.snapshot(); // if no one is watching for patches don't generate them...
     } else {
       let nextSnap = local.snapshot();
+      /*
       const patch = jsonpatch.compare(lastSnap, nextSnap);
       if (patch.length > 0) {
         local.registered().forEach(notify => notify(patch));
       }
+      */
       // update last snap...
       lastSnap = nextSnap;
     }
