@@ -259,8 +259,7 @@ export function Store(state = {}, actions = {}, path = []) {
     for (let k in snap) {
       const t = proxy[k].__type;
       const sn = snap[k];
-      const s = typeof sn;
-      if (t === STORE && s === "object" && sn !== null) {
+      if (t === STORE && typeof sn === "object" && sn !== null) {
         proxy[k].restore(sn);
       } else {
         proxy[k] = sn;

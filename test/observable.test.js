@@ -1,5 +1,11 @@
 import test from "ava";
-import { Store, observable, computed, autorun, action } from "../src/observable";
+import {
+  Store,
+  observable,
+  computed,
+  autorun,
+  action
+} from "../src/observable";
 
 test("observables should return value when called with no argument", t => {
   const test = observable("test");
@@ -12,7 +18,7 @@ test("observables should set a new value when called with an argument", t => {
   t.is(test(), "123");
 });
 
-test("observables referenced multiple times in a single computed should not duplicate the observations", t => {
+test("observables no duplicate observations", t => {
   const test = observable("test");
   const comp = computed(() => {
     return `${test()}: ${test()}`;
@@ -195,7 +201,7 @@ test("computeds that depend on other computed values should not output stale or 
   let b = 0;
   autorun(() => {
     b++;
-    let test2 = fullCount(); 
+    let test2 = fullCount();
   });
   t.is(a, 1);
   t.is(b, 1);
@@ -258,12 +264,11 @@ test("observable array should notify observers on mutator function execution", t
       return acc + val;
     }, 0);
   });
-  t.is(count ,1);
+  t.is(count, 1);
   arr().pop();
   t.is(count, 2);
   t.is(sum, 6);
 });
-
 
 /* need to fix this test...
 test("circular dependencies should short circuit after MAX_DEPTH iterations", t => {

@@ -195,3 +195,17 @@ test("Store snapshots", t => {
   const snap2 = store.snapshot;
   t.deepEqual(snap2, { a: "b", b: "a" });
 });
+
+test("Store should allow register and unregister for patch emissions", t => {
+  const store = Store({
+    test: observable("test")
+  });
+  let count = 0;
+  const patchHandler = patches => {
+    count++;
+  };
+  store.register(patchHandler);
+  store.test = "test123";
+  store.unregister(patchHandler);
+  t.is(count, 1);
+});
