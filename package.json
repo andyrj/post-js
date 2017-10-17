@@ -32,8 +32,6 @@
   "keywords": [
     "mobx",
     "mobx-state-tree",
-    "s-js",
-    "fast-json-patch",
     "observable"
   ],
   "author": "Andy Johnson",
