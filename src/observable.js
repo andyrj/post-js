@@ -83,7 +83,7 @@ function extendArray(val, observers) {
   return new Proxy(val, arrHandler);
 }
 
-function emitPatches(listeners = []) {
+function emitPatches(listeners) {
   if (actions === 0) {
     listeners.forEach(l => {
       l(patchQueue);
@@ -132,7 +132,10 @@ export function Store(state = {}, actions = {}, path = []) {
       }
     },
     set(target, name, value) {
-      const v = value ? value.__type : undefined;
+      let v;
+      if (value) {
+        v = value.__type;
+      }
       if (v === COMPUTED || v === ACTION) {
         value.context(proxy);
       }
@@ -156,8 +159,8 @@ export function Store(state = {}, actions = {}, path = []) {
 
       // create json patchs for observable and unobserved values...
       if (
-        (!value.__type && typeof value !== "function") ||
-        value.__type === OBSERVABLE
+        (value && value.__type === undefined && typeof value !== "function") ||
+        (value && value.__type === OBSERVABLE)
       ) {
         patchQueue.push(Add(path.concat(name), value));
         emitPatches(listeners);
@@ -230,40 +233,39 @@ export function Store(state = {}, actions = {}, path = []) {
   });
   proxy.snapshot = computed(() => {
     const result = {};
-    const keys = Object.keys(local);
-    keys.forEach(key => {
+    for (let key in proxy) {
       const l = local[key];
       let val;
-      if (l.__type) {
+      if (l.__type !== undefined) {
         const t = l.__type;
         if (t === OBSERVABLE) {
-          console.log(l.__type);
           val = l();
         } else if (t === STORE) {
-          console.log(l.__type);
           val = l.snapshot();
         }
-      } else if (typeof l !== "function") {
+      } else if (
+        typeof l !== "function" &&
+        nonIterableKeys.indexOf(key) === -1
+      ) {
         val = l;
       }
       if (val !== undefined) {
-        console.log(key);
         result[key] = val;
       }
-    });
+    }
     return result;
   });
   proxy.restore = action(snap => {
-    Object.keys(snap).forEach(k => {
+    for (let k in snap) {
       const t = proxy[k].__type;
       const sn = snap[k];
-      const s = typeof snap[k];
-      if (t === OBSERVABLE) {
-        proxy[k] = snap[k];
-      } else if (t === STORE && s === "object" && sn !== null) {
+      const s = typeof sn;
+      if (t === STORE && s === "object" && sn !== null) {
         proxy[k].restore(sn);
+      } else {
+        proxy[k] = sn;
       }
-    });
+    }
   });
   proxy.register = function(handler) {
     if (listeners.indexOf(handler) === -1) {
@@ -345,16 +347,17 @@ export function observable(value) {
   if (Array.isArray(value)) {
     value = extendArray(value, observers);
   }
-  const data = function(arg) {
+  const data = function() {
     if (disposed) {
       return;
     }
-    if (arg == null) {
+    if (arguments.length === 0) {
       if (stack.length > 0) {
         stack[stack.length - 1].addDependency(data);
       }
       return value;
     } else {
+      const arg = arguments[0];
       if (actions === 0) {
         if (Array.isArray(arg)) {
           value = extendArray(arg, observers);

@@ -3,7 +3,14 @@ import { Store, observable, computed, action } from "../src";
 
 test("store should throw if given state and action with overlapping key", t => {
   t.throws(() => {
-    const store = Store({test: "test"}, {test(){}});
+    const store = Store(
+      {
+        test: "test"
+      },
+      {
+        test() {}
+      }
+    );
   });
 });
 
@@ -125,20 +132,24 @@ test("Store should only iterate observable, computed, and pojo non-function keys
   t.is(valid, true);
 });
 
+test("Store should allow observable to be set to undefined", t => {
+  const store = Store({ a: observable("a") });
+  store.a = undefined;
+  t.is(store.a, undefined);
+});
+
 test("Store should automatically provide this context to computed values", t => {
-  const store = Store(
-    {
-      a: "a",
-      b: observable("b"),
-      c: function() {
-        return `${this.a} + ${this.b}`;
-      }
+  const store = Store({
+    a: "a",
+    b: observable("b"),
+    c: function() {
+      return `${this.a} + ${this.b}`;
     }
-  );
+  });
   t.is(store.c, "a + b");
 });
 
-test("Store should only return true for in operator on pojo/observable/computed/store values", t => {
+test("Store in operator on pojo/observable/computed/store values only", t => {
   const store = Store(
     {
       a: "a",
@@ -165,7 +176,6 @@ test("Store should only return true for in operator on pojo/observable/computed/
 });
 
 test("Store snapshots", t => {
-  console.log("+++++");
   const store = Store(
     {
       a: "a",
@@ -179,6 +189,9 @@ test("Store snapshots", t => {
       e: () => {}
     }
   );
-  t.deepEqual(store.snapshot, { a: "a", b: "b", c: "a + b"});
-  console.log("+++++");
+  const snap = store.snapshot;
+  t.deepEqual(snap, { a: "a", b: "b" });
+  store.restore({ a: "b", b: "a" });
+  const snap2 = store.snapshot;
+  t.deepEqual(snap2, { a: "b", b: "a" });
 });
