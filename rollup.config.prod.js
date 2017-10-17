@@ -1,17 +1,22 @@
 import minify from "rollup-plugin-babel-minify";
+import babel from "rollup-plugin-babel";
 
 export default {
   input: "./src/index.js",
-  name: "postJs",
+  name: "post-js",
   output: {
     file: "./dist/post.js",
     format: "umd"
   },
   sourcemap: true,
-  plugins: [minify({ comments: false })],
-  globals: {
-    "s-js": "S",
-    "fast-json-patch": "jsonpatch"
-  },
-  external: ["s-js", "fast-json-patch"]
+  plugins: [
+    babel({
+      babelrc: false,
+      presets: [["env", { modules: false }]],
+      plugins: []
+    }),
+    minify({ comments: false })
+  ],
+  globals: {},
+  external: []
 };

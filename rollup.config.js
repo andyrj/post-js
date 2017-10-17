@@ -1,15 +1,20 @@
+import babel from "rollup-plugin-babel";
+
 export default {
   input: "./src/index.js",
-  name: "postJs",
+  name: "post-js",
   output: {
     file: "./dist/post.js",
     format: "umd"
   },
   sourcemap: true,
-  plugins: [],
-  globals: {
-    "s-js": "S",
-    "fast-json-patch": "jsonpatch"
-  },
-  external: ["s-js", "fast-json-patch"]
+  plugins: [
+    babel({
+      babelrc: false,
+      presets: [["env", { modules: false }]],
+      plugins: []
+    })
+  ],
+  globals: {},
+  external: []
 };

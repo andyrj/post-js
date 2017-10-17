@@ -1,1 +1,1 @@
-export { Store, autorun } from "./store";
+export * from "./observable";
