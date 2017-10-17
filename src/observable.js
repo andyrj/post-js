@@ -241,7 +241,7 @@ export function Store(state = {}, actions = {}, path = []) {
         if (t === OBSERVABLE) {
           val = l();
         } else if (t === STORE) {
-          val = l.snapshot();
+          val = l.snapshot;
         }
       } else if (
         typeof l !== "function" &&

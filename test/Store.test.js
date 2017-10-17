@@ -209,3 +209,13 @@ test("Store should allow register and unregister for patch emissions", t => {
   store.unregister(patchHandler);
   t.is(count, 1);
 });
+
+test("Store should allow explicitly provided nested stores", t => {
+  const store1 = Store({
+    test: "stuff"
+  });
+  const store = Store({
+    nested: store1
+  });
+  t.deepEqual(store.snapshot, { nested: { test: "stuff" } });
+});
