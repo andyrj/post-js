@@ -295,6 +295,9 @@ export function Store(state = {}, actions = {}, path = []) {
   return proxy;
 }
 
+function conditionalDec(condition, count) {
+  return condition ? count-- : count;
+}
 /**
  * action - Batches changes to observables and computed values so that 
  * they are computed without glitches and without triggering autoruns 
@@ -307,9 +310,8 @@ export function Store(state = {}, actions = {}, path = []) {
  */
 export function action(fn, context) {
   const func = function() {
-    const args = arguments;
     actions++;
-    fn.apply(context, args);
+    fn.apply(context, arguments);
     if (actions === 1) {
       reconciling = true;
       while (
@@ -319,19 +321,13 @@ export function action(fn, context) {
         depth > 0
       ) {
         if (transaction.o.length > 0) {
-          if (transaction.o.length === 1) {
-            depth--;
-          }
+          depth = conditionalDec(transaction.o.length === 1, depth);
           transaction.o.shift()();
         } else if (transaction.c.length > 0) {
-          if (transaction.c.length === 1) {
-            depth--;
-          }
+          depth = conditionalDec(transaction.c.length === 1, depth);
           transaction.c.shift().run();
         } else {
-          if (transaction.a.length === 1) {
-            depth--;
-          }
+          depth = conditionalDec(transaction.a.length === 1, depth);
           transaction.a.shift().run();
         }
       }
