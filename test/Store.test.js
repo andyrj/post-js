@@ -50,6 +50,21 @@ test("Store should replace observable transparently", t => {
   t.is(store.first, "boom");
 });
 
+test("Store should replace computed values transparently", t => {
+  const store = Store({
+    first: "Andy",
+    last: "Johnson",
+    fullName: function() {
+      return `${this.first} ${this.last}`;
+    }
+  });
+  store.fullName = computed(function() {
+    return `${this.first} ${this.first}`;
+  }, store);
+
+  t.is(store.fullName, "Andy Andy");
+});
+
 test("Store should return undefined when trying to access key that has not been set", t => {
   const store = Store({});
   t.is(store.test, undefined);
@@ -211,11 +226,17 @@ test("Store should allow register and unregister for patch emissions", t => {
 });
 
 test("Store should allow explicitly provided nested stores", t => {
-  const store1 = Store({
-    test: "stuff"
-  });
+  const store1 = Store(
+    {
+      test: "stuff"
+    },
+    {},
+    ["nested"]
+  );
   const store = Store({
     nested: store1
   });
   t.deepEqual(store.snapshot, { nested: { test: "stuff" } });
+  store.restore({ nested: { test: "test" } });
+  t.deepEqual(store.snapshot, { nested: { test: "test" } });
 });

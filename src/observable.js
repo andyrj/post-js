@@ -100,6 +100,7 @@ const nonIterableKeys = [
   "register",
   "unregister",
   "apply",
+  "__path",
   "__type"
 ];
 
@@ -117,6 +118,7 @@ export function Store(state = {}, actions = {}, path = []) {
   const local = {};
   let proxy;
   const listeners = [];
+  let staleSnap = observable(false);
   const storeHandler = {
     get(target, name) {
       if (name in target) {
@@ -148,7 +150,7 @@ export function Store(state = {}, actions = {}, path = []) {
             target[name](value);
           }
         } else {
-          if (t && target[name].dispose) {
+          if (t && typeof target[name].dispose === "function") {
             target[name].dispose();
           }
           target[name] = value;
@@ -171,11 +173,12 @@ export function Store(state = {}, actions = {}, path = []) {
     deleteProperty(target, name) {
       if (name in target) {
         const t = target[name];
-        if ((!t.__type && typeof t !== "function") || t.__type === OBSERVABLE) {
+        const type = t.__type;
+        if ((!type && typeof t !== "function") || type === OBSERVABLE) {
           patchQueue.push(Remove(path.concat(name)));
         }
-        if (target[name].dispose != null) {
-          target[name].dispose();
+        if (t.dispose != null) {
+          t.dispose();
         }
         delete target[name];
         emitPatches(listeners);
@@ -213,6 +216,9 @@ export function Store(state = {}, actions = {}, path = []) {
     const s = state[key];
     const t = s.__type;
     if (t === OBSERVABLE || typeof s !== "function") {
+      if (t === STORE) {
+        s.__path(path.concat(key));
+      }
       local[key] = s;
     } else {
       local[key] = computed(s, proxy);
@@ -232,6 +238,7 @@ export function Store(state = {}, actions = {}, path = []) {
     }
   });
   proxy.snapshot = computed(() => {
+    let temp = staleSnap();
     const result = {};
     for (let key in proxy) {
       const l = local[key];
@@ -256,13 +263,13 @@ export function Store(state = {}, actions = {}, path = []) {
     return result;
   });
   proxy.restore = action(snap => {
+    staleSnap(!staleSnap());
     for (let k in snap) {
-      const t = proxy[k].__type;
-      const sn = snap[k];
-      if (t === STORE && typeof sn === "object" && sn !== null) {
-        proxy[k].restore(sn);
+      const t = local[k].__type;
+      if (t === STORE && typeof snap[k] === "object" && snap[k] !== null) {
+        proxy[k].restore(snap[k]);
       } else {
-        proxy[k] = sn;
+        proxy[k] = snap[k];
       }
     }
   });
@@ -279,6 +286,9 @@ export function Store(state = {}, actions = {}, path = []) {
   };
   proxy.apply = function(patches) {
     apply(proxy, patches);
+  };
+  proxy.__path = function(newPath) {
+    path = newPath;
   };
   proxy.__type = STORE;
   return proxy;
