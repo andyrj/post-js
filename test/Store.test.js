@@ -192,7 +192,7 @@ test("Store in operator on pojo/observable/computed/store values only", t => {
   t.is("e" in store, false);
   t.is("f" in store, false);
   t.is("_type" in store, false);
-  t.is("snapshot" in store, false);
+  t.is("_snapshot" in store, false);
   t.is(store._type, 2);
   t.is(typeof store._snapshot, "object");
 });
