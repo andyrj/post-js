@@ -270,6 +270,18 @@ test("observable array should notify observers on mutator function execution", t
   t.is(sum, 6);
 });
 
+test("updating an observable array should work as epxected", t => {
+  const arr = observable([]);
+  const reset = action(() => {
+    arr([]);
+  });
+  t.deepEqual(arr(), []);
+  arr([1, 2, 3]);
+  t.deepEqual(arr(), [1, 2, 3]);
+  reset();
+  t.deepEqual(arr(), []);
+});
+
 /* need to fix this test...
 test("circular dependencies should short circuit after MAX_DEPTH iterations", t => {
   console.warn = () => {};

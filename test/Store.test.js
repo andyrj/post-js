@@ -75,16 +75,22 @@ test("Store should work with delete", t => {
   const store = Store({
     first: observable("Andy"),
     last: observable("Johnson"),
+    fullName() {
+      return `${this.first} ${this.last}`;
+    },
     unob: "test"
   });
   t.is(store.first, "Andy");
   t.is(store.last, "Johnson");
+  t.is(store.fullName, "Andy Johnson");
   t.is(store.unob, "test");
   delete store.last;
   delete store.first;
+  delete store.fullName;
   delete store.unob;
   t.is(store.first, undefined);
-  t.is(store.comp, undefined);
+  t.is(store.last, undefined);
+  t.is(store.fullName, undefined);
   t.is(store.unob, undefined);
 });
 
