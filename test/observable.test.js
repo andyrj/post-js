@@ -313,27 +313,3 @@ test("circular dependencies should short circuit after MAX_DEPTH iterations", t 
   //act();
   t.is(warns, 1);
 });
-
-/* why can't circular dependency be triggered wihtout action?
-test("circular dependencies should short circuit after MAX_DEPTH iterations without needing action to trigger it", t => {
-  const count1 = observable(0);
-  const count2 = observable(0);
-  const inc1 = () => count1(count1() + 1);
-  const inc2 = () => count2(count2() + 1);
-  const comp1 = computed(() => {
-    inc2();
-    return `comp1: ${count1()}`;
-  });
-  const comp2 = computed(() => {
-    inc1();
-    return `comp2: ${count2()}`;
-  });
-  autorun(() => {
-    inc1();
-    inc2();
-    let c1 = comp1();
-    let c2 = comp2();
-  });
-  t.is(count2(), 50);
-});
-*/
