@@ -296,7 +296,7 @@ export function Store(state = {}, actions = {}, path = []) {
 }
 
 function conditionalDec(condition, count) {
-  return condition ? count-- : count;
+  return condition ? --count : count;
 }
 /**
  * action - Batches changes to observables and computed values so that 
