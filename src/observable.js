@@ -285,6 +285,7 @@ export function Store(state = {}, actions = {}, path = []) {
     }
   };
   proxy.apply = function(patches) {
+    console.log(proxy, patches);
     apply(proxy, patches);
   };
   proxy.__path = function(newPath) {

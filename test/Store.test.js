@@ -1,5 +1,6 @@
 import test from "ava";
 import { Store, observable, computed, action } from "../src";
+import { Add } from "../src/json";
 
 test("store should throw if given state and action with overlapping key", t => {
   t.throws(() => {
@@ -220,7 +221,9 @@ test("Store should allow register and unregister for patch emissions", t => {
     count++;
   };
   store.register(patchHandler);
+  store.register(patchHandler);
   store.test = "test123";
+  store.unregister(patchHandler);
   store.unregister(patchHandler);
   t.is(count, 1);
 });
@@ -239,4 +242,11 @@ test("Store should allow explicitly provided nested stores", t => {
   t.deepEqual(store.snapshot, { nested: { test: "stuff" } });
   store.restore({ nested: { test: "test" } });
   t.deepEqual(store.snapshot, { nested: { test: "test" } });
+});
+
+test("Store should apply patches", t => {
+  const store = Store({ test: "test" });
+  const patches = [Add(["test"], "test123")];
+  console.log(store.apply(patches));
+  t.is(store.test, "test123");
 });

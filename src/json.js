@@ -125,6 +125,9 @@ function walkPath(doc, arr) {
       parent = parent[clone.shift()];
     }
   }
+  if (parent == null) {
+    parent = doc;
+  }
   return { parent, prop };
 }
 
