@@ -99,7 +99,7 @@ const nonIterableKeys = [
   "restore",
   "register",
   "unregister",
-  "apply",
+  "patch",
   "__path",
   "__type"
 ];
@@ -284,8 +284,7 @@ export function Store(state = {}, actions = {}, path = []) {
       listeners.splice(index, 1);
     }
   };
-  proxy.apply = function(patches) {
-    console.log(proxy, patches);
+  proxy.patch = function(patches) {
     apply(proxy, patches);
   };
   proxy.__path = function(newPath) {

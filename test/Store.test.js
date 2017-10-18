@@ -247,6 +247,6 @@ test("Store should allow explicitly provided nested stores", t => {
 test("Store should apply patches", t => {
   const store = Store({ test: "test" });
   const patches = [Add(["test"], "test123")];
-  console.log(store.apply(patches));
+  store.patch(patches);
   t.is(store.test, "test123");
 });

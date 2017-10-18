@@ -115,6 +115,9 @@ function pointerToArr(pointer) {
 }
 
 function walkPath(doc, arr) {
+  if (arr.length === 1) {
+    return { parent: doc, prop: arr[0] }
+  }
   const clone = arr.slice(0);
   const prop = clone.pop();
   let parent;
@@ -124,9 +127,6 @@ function walkPath(doc, arr) {
     } else {
       parent = parent[clone.shift()];
     }
-  }
-  if (parent == null) {
-    parent = doc;
   }
   return { parent, prop };
 }
@@ -139,7 +139,16 @@ function validate(patch, keys) {
   });
 }
 
+function forceArr(patches) {
+  if (!Array.isArray(patches)) {
+    return [patches];
+  } else {
+    return patches;
+  }
+}
+
 export function apply(doc, patches) {
+  patches = forceArr(patches);
   let i = 0;
   const len = patches.length;
   for (; i < len; i++) {

@@ -1,13 +1,5 @@
 import test from "ava";
-import {
-  Add,
-  Remove,
-  Replace,
-  Move,
-  Copy,
-  Test,
-  apply
-} from "../src/json";
+import { Add, Remove, Replace, Move, Copy, Test, apply } from "../src/json";
 
 test("Add outputs proper json patch add op", t => {
   const expected = { op: "add", path: "/a/b/c", value: "test" };
@@ -193,19 +185,25 @@ test("apply should properly test", t => {
   t.is(apply(initial, [Test(["a", "b", "d"], ["1", "2", "4"])]), false);
   t.is(apply(initial, [Test(["a", "b", "d"], 0)]), false);
   t.is(apply(initial, [Test(["a", "b", "e"], {})]), true);
-  t.is(apply(initial, [Test(["a", "b", "e"], {boom: true})]), false);
-  t.is(apply(initial, [Test(["a", "b", "f"], {g: { h: "test" }})]), true);
-  t.is(apply(initial, [Test(["a", "b", "f"], {g: { h: "boom" }})]), false);
+  t.is(apply(initial, [Test(["a", "b", "e"], { boom: true })]), false);
+  t.is(apply(initial, [Test(["a", "b", "f"], { g: { h: "test" } })]), true);
+  t.is(apply(initial, [Test(["a", "b", "f"], { g: { h: "boom" } })]), false);
 });
 
 test("invalid patches should cause apply to throw", t => {
   t.throws(() => {
-    apply({}, [{test: "woops"}]);
+    apply({}, [{ test: "woops" }]);
   });
   t.throws(() => {
-    apply({}, [{op: "add", test: "woops"}]);
+    apply({}, [{ op: "add", test: "woops" }]);
   });
   t.throws(() => {
-    apply({}, [{op: "woops"}]);
+    apply({}, [{ op: "woops" }]);
   });
+});
+
+test("apply should work with shallow object", t => {
+  const j = { test: "test" };
+  apply(j, Add(["test"], "test123"));
+  t.is(j.test, "test123");
 });
