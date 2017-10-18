@@ -226,7 +226,7 @@ test("observable array should return proxy that notifies observers on set", t =>
     sum = arr().reduce((acc, val) => {
       if (val == null) {
         return acc;
-      } else if (val.__type === 0) {
+      } else if (val._type === 0) {
         return acc + val();
       }
       return acc + val;
@@ -258,7 +258,7 @@ test("observable array should notify observers on mutator function execution", t
     sum = arr().reduce((acc, val) => {
       if (val == null) {
         return acc;
-      } else if (val.__type === "observable") {
+      } else if (val._type === 0) {
         return acc + val();
       }
       return acc + val;

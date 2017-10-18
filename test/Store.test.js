@@ -191,10 +191,10 @@ test("Store in operator on pojo/observable/computed/store values only", t => {
   t.is("d" in store, false);
   t.is("e" in store, false);
   t.is("f" in store, false);
-  t.is("__type" in store, false);
+  t.is("_type" in store, false);
   t.is("snapshot" in store, false);
-  t.is(store.__type, 2);
-  t.is(typeof store.snapshot, "object");
+  t.is(store._type, 2);
+  t.is(typeof store._snapshot, "object");
 });
 
 test("Store snapshots", t => {
@@ -211,10 +211,10 @@ test("Store snapshots", t => {
       e: () => {}
     }
   );
-  const snap = store.snapshot;
+  const snap = store._snapshot;
   t.deepEqual(snap, { a: "a", b: "b" });
-  store.restore({ a: "b", b: "a" });
-  const snap2 = store.snapshot;
+  store._restore({ a: "b", b: "a" });
+  const snap2 = store._snapshot;
   t.deepEqual(snap2, { a: "b", b: "a" });
 });
 
@@ -226,11 +226,11 @@ test("Store should allow register and unregister for patch emissions", t => {
   const patchHandler = patches => {
     count++;
   };
-  store.register(patchHandler);
-  store.register(patchHandler);
+  store._register(patchHandler);
+  store._register(patchHandler);
   store.test = "test123";
-  store.unregister(patchHandler);
-  store.unregister(patchHandler);
+  store._unregister(patchHandler);
+  store._unregister(patchHandler);
   t.is(count, 1);
 });
 
@@ -245,14 +245,14 @@ test("Store should allow explicitly provided nested stores", t => {
   const store = Store({
     nested: store1
   });
-  t.deepEqual(store.snapshot, { nested: { test: "stuff" } });
-  store.restore({ nested: { test: "test" } });
-  t.deepEqual(store.snapshot, { nested: { test: "test" } });
+  t.deepEqual(store._snapshot, { nested: { test: "stuff" } });
+  store._restore({ nested: { test: "test" } });
+  t.deepEqual(store._snapshot, { nested: { test: "test" } });
 });
 
 test("Store should apply patches", t => {
   const store = Store({ test: "test" });
   const patches = [Add(["test"], "test123")];
-  store.patch(patches);
+  store._patch(patches);
   t.is(store.test, "test123");
 });

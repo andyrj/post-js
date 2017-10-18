@@ -28,7 +28,7 @@ function notifyObservers(obs) {
     if (actions === 0) {
       o.run();
     } else {
-      if (o.__type === COMPUTED) {
+      if (o._type === COMPUTED) {
         const index = transaction.c.indexOf(o);
         if (index > -1) {
           transaction.c.splice(index, 1);
@@ -61,8 +61,8 @@ function extendArray(val, observers) {
     },
     set(target, name, value) {
       if (target[name] != null) {
-        if (target[name].__type === OBSERVABLE) {
-          if (value != null && value.__type === OBSERVABLE) {
+        if (target[name]._type === OBSERVABLE) {
+          if (value != null && value._type === OBSERVABLE) {
             target[name](value());
           } else {
             target[name](value);
@@ -96,13 +96,13 @@ function emitPatches(listeners) {
 }
 
 const nonIterableKeys = [
-  "snapshot",
-  "restore",
-  "register",
-  "unregister",
-  "patch",
-  "__path",
-  "__type"
+  "_snapshot",
+  "_restore",
+  "_register",
+  "_unregister",
+  "_patch",
+  "_path",
+  "_type"
 ];
 
 /**
@@ -124,8 +124,8 @@ export function Store(state = {}, actions = {}, path = []) {
     get(target, name) {
       if (name in target) {
         if (
-          target[name].__type === OBSERVABLE ||
-          target[name].__type === COMPUTED
+          target[name]._type === OBSERVABLE ||
+          target[name]._type === COMPUTED
         ) {
           return target[name]();
         }
@@ -137,13 +137,13 @@ export function Store(state = {}, actions = {}, path = []) {
     set(target, name, value) {
       let v;
       if (value) {
-        v = value.__type;
+        v = value._type;
       }
       if (v === COMPUTED || v === ACTION) {
         value.context(proxy);
       }
       if (name in target) {
-        const t = target[name].__type;
+        const t = target[name]._type;
         if (t === OBSERVABLE) {
           if (v === OBSERVABLE) {
             target[name](value());
@@ -162,8 +162,8 @@ export function Store(state = {}, actions = {}, path = []) {
 
       // create json patchs for observable and unobserved values...
       if (
-        (value && value.__type === undefined && typeof value !== "function") ||
-        (value && value.__type === OBSERVABLE)
+        (value && value._type === undefined && typeof value !== "function") ||
+        (value && value._type === OBSERVABLE)
       ) {
         patchQueue.push(Add(path.concat(name), value));
         emitPatches(listeners);
@@ -174,7 +174,7 @@ export function Store(state = {}, actions = {}, path = []) {
     deleteProperty(target, name) {
       if (name in target) {
         const t = target[name];
-        const type = t.__type;
+        const type = t._type;
         if ((!type && typeof t !== "function") || type === OBSERVABLE) {
           patchQueue.push(Remove(path.concat(name)));
         }
@@ -191,7 +191,7 @@ export function Store(state = {}, actions = {}, path = []) {
     has(target, name) {
       if (name in target && nonIterableKeys.indexOf(name) === -1) {
         const isFunc = typeof target[name] === "function";
-        const type = target[name].__type;
+        const type = target[name]._type;
         if (isFunc) {
           if (type < ACTION) {
             return true;
@@ -207,7 +207,7 @@ export function Store(state = {}, actions = {}, path = []) {
     },
     ownKeys(target) {
       return Reflect.ownKeys(target).filter(k => {
-        const type = target[k].__type;
+        const type = target[k]._type;
         return (!type && typeof target[k] !== "function") || type < ACTION;
       });
     }
@@ -215,10 +215,10 @@ export function Store(state = {}, actions = {}, path = []) {
   proxy = new Proxy(local, storeHandler);
   Object.keys(state).forEach(key => {
     const s = state[key];
-    const t = s.__type;
+    const t = s._type;
     if (t === OBSERVABLE || typeof s !== "function") {
       if (t === STORE) {
-        s.__path(path.concat(key));
+        s._path(path.concat(key));
       }
       local[key] = s;
     } else {
@@ -227,7 +227,7 @@ export function Store(state = {}, actions = {}, path = []) {
   });
   Object.keys(actions).forEach(key => {
     const a = actions[key];
-    const t = a.__type;
+    const t = a._type;
     if (key in local) {
       throw new RangeError("Key overlap between state and actions");
     }
@@ -238,18 +238,18 @@ export function Store(state = {}, actions = {}, path = []) {
       local[key] = a;
     }
   });
-  proxy.snapshot = computed(() => {
+  proxy._snapshot = computed(() => {
     let temp = staleSnap();
     const result = {};
     for (let key in proxy) {
       const l = local[key];
       let val;
-      if (l.__type !== undefined) {
-        const t = l.__type;
+      if (l._type !== undefined) {
+        const t = l._type;
         if (t === OBSERVABLE) {
           val = l();
         } else if (t === STORE) {
-          val = l.snapshot;
+          val = l._snapshot;
         }
       } else if (
         typeof l !== "function" &&
@@ -263,35 +263,35 @@ export function Store(state = {}, actions = {}, path = []) {
     }
     return result;
   });
-  proxy.restore = action(snap => {
+  proxy._restore = action(snap => {
     staleSnap(!staleSnap());
     for (let k in snap) {
-      const t = local[k].__type;
+      const t = local[k]._type;
       if (t === STORE && typeof snap[k] === "object" && snap[k] !== null) {
-        proxy[k].restore(snap[k]);
+        proxy[k]._restore(snap[k]);
       } else {
         proxy[k] = snap[k];
       }
     }
   });
-  proxy.register = function(handler) {
+  proxy._register = function(handler) {
     if (listeners.indexOf(handler) === -1) {
       listeners.push(handler);
     }
   };
-  proxy.unregister = function(handler) {
+  proxy._unregister = function(handler) {
     const index = listeners.indexOf(handler);
     if (index > -1) {
       listeners.splice(index, 1);
     }
   };
-  proxy.patch = function(patches) {
+  proxy._patch = function(patches) {
     apply(proxy, patches);
   };
-  proxy.__path = function(newPath) {
+  proxy._path = function(newPath) {
     path = newPath;
   };
-  proxy.__type = STORE;
+  proxy._type = STORE;
   return proxy;
 }
 
@@ -339,7 +339,7 @@ export function action(fn, context) {
     }
     actions--;
   };
-  func.__type = ACTION;
+  func._type = ACTION;
   func.context = function(newContext) {
     context = newContext;
   };
@@ -390,7 +390,7 @@ export function observable(value) {
       notifyObservers(observers);
     }
   };
-  data.__type = OBSERVABLE;
+  data._type = OBSERVABLE;
   data.sub = function(observer) {
     if (observers.indexOf(observer) === -1) {
       observers.push(observer);
@@ -460,7 +460,7 @@ export function computed(thunk, context) {
       return current();
     }
   }
-  wrapper.__type = COMPUTED;
+  wrapper._type = COMPUTED;
   wrapper.dispose = function() {
     current.dispose();
     dispose();
@@ -508,7 +508,7 @@ export function autorun(thunk, computed = false) {
         stack.pop(this);
       }
     },
-    __type: computed ? COMPUTED : AUTORUN
+    _type: computed ? COMPUTED : AUTORUN
   };
   reaction.run();
   return function() {
