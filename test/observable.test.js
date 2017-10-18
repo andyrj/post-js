@@ -282,13 +282,17 @@ test("updating an observable array should work as epxected", t => {
   t.deepEqual(arr(), []);
 });
 
-/* need to fix this test...
 test("circular dependencies should short circuit after MAX_DEPTH iterations", t => {
-  console.warn = () => {};
+  let warns = 0;
+  console.warn = () => warns++;
   const count1 = observable(0);
   const count2 = observable(0);
-  const inc1 = () => count1(count1() + 1);
-  const inc2 = () => count2(count2() + 1);
+  const inc1 = action(() => count1(count1() + 1));
+  const inc2 = action(() => count2(count2() + 1));
+  const act = action(() => {
+    inc1();
+    inc2();
+  });
   const comp1 = computed(() => {
     const newVal = `comp1: ${count1()}`;
     inc2();
@@ -299,23 +303,17 @@ test("circular dependencies should short circuit after MAX_DEPTH iterations", t 
     inc1();
     return newVal;
   });
-  const act = action(() => {
-    inc1();
-    inc2();
-  });
-  autorun(() => {
-    let c1 = comp1();
-    let c2 = comp2();
-  });
-  autorun(() => {
-    let x1 = count1();
-    let x2 = count2();
+  const comp3 = computed(() => {
     act();
+    return `${comp1()} : ${comp2()}`;
   });
-  console.log(count1(), count2());
-  t.is(count2() + count1(), true);
+  autorun(() => {
+    let c3 = comp3();
+  });
+  //act();
+  t.is(warns, 1);
 });
-*/
+
 /* why can't circular dependency be triggered wihtout action?
 test("circular dependencies should short circuit after MAX_DEPTH iterations without needing action to trigger it", t => {
   const count1 = observable(0);

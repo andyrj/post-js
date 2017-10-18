@@ -2,7 +2,7 @@ import { apply, Add, Remove } from "./json";
 
 const stack = [];
 let actions = 0;
-const MAX_DEPTH = 100;
+const MAX_DEPTH = 300;
 const OBSERVABLE = 0;
 const COMPUTED = 1;
 const STORE = 2;
@@ -10,6 +10,7 @@ const AUTORUN = 4;
 const ACTION = 3;
 let depth = MAX_DEPTH;
 const transaction = { o: [], c: [], a: [] };
+let reconciling = false;
 const patchQueue = [];
 
 const arrayMutators = [
@@ -310,6 +311,7 @@ export function action(fn, context) {
     actions++;
     fn.apply(context, args);
     if (actions === 1) {
+      reconciling = true;
       while (
         (transaction.o.length > 0 ||
           transaction.c.length > 0 ||
@@ -317,6 +319,9 @@ export function action(fn, context) {
         depth > 0
       ) {
         if (transaction.o.length > 0) {
+          if (transaction.o.length === 1) {
+            depth--;
+          }
           transaction.o.shift()();
         } else if (transaction.c.length > 0) {
           if (transaction.c.length === 1) {
@@ -324,6 +329,9 @@ export function action(fn, context) {
           }
           transaction.c.shift().run();
         } else {
+          if (transaction.a.length === 1) {
+            depth--;
+          }
           transaction.a.shift().run();
         }
       }
@@ -331,6 +339,7 @@ export function action(fn, context) {
         console.warn("circular dependency detected");
       }
       depth = MAX_DEPTH;
+      reconciling = false;
     }
     actions--;
   };
@@ -429,7 +438,7 @@ export function computed(thunk, context) {
     current(result);
   }
   const computation = function() {
-    if (current.hasObservers() || init) {
+    if (current.hasObservers() || init || reconciling) {
       if (init) {
         init = false;
       }
