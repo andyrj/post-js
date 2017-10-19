@@ -45,13 +45,17 @@ function notifyObservers(obs) {
   });
 }
 
-// TODO: need to pass path of the array...
-function extendArray(val, observers) {
+function createArrayMutatorPatch(path, method, args, result) {
+  // TODO: write code to create patches for each array mutator method
+}
+
+function extendArray(val, observers, path = []) {
   const arrHandler = {
     get(target, name) {
       if (arrayMutators.indexOf(name) > -1) {
         return function() {
           const res = Array.prototype[name].apply(target, arguments);
+          patchQueue.push(createArrayMutatorPatch(path, name, arguments, res));
           notifyObservers(observers);
           return res;
         };
@@ -60,9 +64,11 @@ function extendArray(val, observers) {
       }
     },
     set(target, name, value) {
-      if (target[name] != null) {
+      let val = value;
+      if (name in target) {
         if (target[name]._type === OBSERVABLE) {
           if (value != null && value._type === OBSERVABLE) {
+            val = value();
             target[name](value());
           } else {
             target[name](value);
@@ -77,6 +83,7 @@ function extendArray(val, observers) {
           target[name] = value;
         }
       }
+      patchQueue.push(Add(path.concat(name), val));
       notifyObservers(observers);
       return true;
     }
