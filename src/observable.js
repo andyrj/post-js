@@ -109,6 +109,7 @@ const nonIterableKeys = [
   "_unregister",
   "_patch",
   "_path",
+  "_parent",
   "_type"
 ];
 
@@ -119,10 +120,21 @@ const nonIterableKeys = [
  * @export
  * @param {any} [state={}] - Object that defines your state/actions, 
  *   should be made of unobserved values, observables, computed, and actions.
- * @param {any} [path=[]] - Array of paths that lead to this Store...
- * @returns {store} Proxy to use observables/computed transparently as if POJO.
+ * @param {any} [actions={}] - Object declaring functions, and actions for store
+ * @param {string} [name=""] - string name for key of this store nested in parent store
+ * @param {Store|undefined} [parent=undefined] - Store that this store is nested within, useful for json ref
+ *   that points to a path above this store (i.e. /../../a/b/c)
+ * @returns {Store} Proxy to use observables/computed transparently as if POJO.
  */
-export function Store(state = {}, actions = {}, path = []) {
+export function Store(state = {}, actions = {}, name = "", parent = undefined) {
+  let path = [];
+  if (parent && parent._path && name !== "") {
+    path = parent._path.concat(name);
+  } else {
+    if (name !== "") {
+      path = [name];
+    }
+  }
   const local = {};
   let proxy;
   const listeners = [];
@@ -296,7 +308,18 @@ export function Store(state = {}, actions = {}, path = []) {
     apply(proxy, patches);
   };
   proxy._path = function(newPath) {
-    path = newPath;
+    if (newPath !== undefined) {
+      path = newPath;
+    } else {
+      return path;
+    }
+  };
+  proxy._parent = function(newParent) {
+    if (newParent !== undefined) {
+      parent = newParent;
+    } else {
+      return parent;
+    }
   };
   proxy._type = STORE;
   return proxy;
