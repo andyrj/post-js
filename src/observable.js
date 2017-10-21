@@ -45,17 +45,12 @@ function notifyObservers(obs) {
   });
 }
 
-function createArrayMutatorPatch(path, method, args, result) {
-  // TODO: write code to create patches for each array mutator method
-}
-
-function extendArray(val, observers, path = []) {
+function extendArray(val, observers) {
   const arrHandler = {
     get(target, name) {
       if (arrayMutators.indexOf(name) > -1) {
         return function() {
           const res = Array.prototype[name].apply(target, arguments);
-          patchQueue.push(createArrayMutatorPatch(path, name, arguments, res));
           notifyObservers(observers);
           return res;
         };
@@ -83,7 +78,6 @@ function extendArray(val, observers, path = []) {
           target[name] = value;
         }
       }
-      patchQueue.push(Add(path.concat(name), val));
       notifyObservers(observers);
       return true;
     }
@@ -91,6 +85,7 @@ function extendArray(val, observers, path = []) {
   return new Proxy(val, arrHandler);
 }
 
+let actionPatchEmitter;
 function emitPatches(listeners) {
   if (actions === 0) {
     listeners.forEach(l => {
@@ -98,6 +93,16 @@ function emitPatches(listeners) {
     });
     while (patchQueue.length > 0) {
       patchQueue.pop();
+    }
+  } else {
+    actionPatchEmitter = function() {
+      listeners.forEach(l => {
+        l(patchQueue);
+      });
+      while (patchQueue.length > 0) {
+        patchQueue.pop();
+      }
+      actionPatchEmitter = undefined;
     }
   }
 }
@@ -108,8 +113,6 @@ const nonIterableKeys = [
   "_register",
   "_unregister",
   "_patch",
-  "_path",
-  "_parent",
   "_type"
 ];
 
@@ -121,24 +124,48 @@ const nonIterableKeys = [
  * @param {any} [state={}] - Object that defines your state/actions, 
  *   should be made of unobserved values, observables, computed, and actions.
  * @param {any} [actions={}] - Object declaring functions, and actions for store
- * @param {string} [name=""] - string name for key of this store nested in parent store
- * @param {Store|undefined} [parent=undefined] - Store that this store is nested within, useful for json ref
- *   that points to a path above this store (i.e. /../../a/b/c)
  * @returns {Store} Proxy to use observables/computed transparently as if POJO.
  */
-export function Store(state = {}, actions = {}, name = "", parent = undefined) {
-  let path = [];
-  if (parent && parent._path && name !== "") {
-    path = parent._path.concat(name);
-  } else {
-    if (name !== "") {
-      path = [name];
-    }
-  }
+export function Store(state = {}, actions = {}) {
   const local = {};
   let proxy;
   const listeners = [];
-  let staleSnap = observable(false);
+  const observed = observable([]);
+  const unobserved = observable([]);
+  const stores = observable([]);
+  function addKey(name, value) {
+    if (nonIterableKeys.indexOf(name) > -1) {
+      return;
+    }
+    const type = value._type;
+    if (!type && typeof value !== "function") {
+      unobserved().push(name);
+    } else if (type === STORE) {
+      stores().push(name);
+    } else if (type === OBSERVABLE) {
+      observed().push(name);
+    }
+  }
+  function removeKey(name) {
+    if (nonIterableKeys.indexOf(name) > -1) {
+      return;
+    }
+    const ob = observed();
+    const un = unobserved();
+    const st = stores();
+    const indexOb = ob.indexOf(name);
+    const indexUn = un.indexOf(name);
+    const indexSt = st.indexOf(name);
+    if (indexOb > -1) {
+      ob.splice(indexOb, 1);
+    }
+    if (indexUn > -1) {
+      un.splice(indexUn, 1);
+    }
+    if (indexSt > -1) {
+      st.splice(indexSt, 1);
+    }
+  }
   const storeHandler = {
     get(target, name) {
       if (name in target) {
@@ -172,34 +199,25 @@ export function Store(state = {}, actions = {}, name = "", parent = undefined) {
         } else {
           if (t && typeof target[name].dispose === "function") {
             target[name].dispose();
+            removeKey(name);
           }
           target[name] = value;
+          addKey(name, value);
         }
       } else {
         target[name] = value;
+        addKey(name, value);
       }
-
-      // create json patchs for observable and unobserved values...
-      if (
-        (value && value._type === undefined && typeof value !== "function") ||
-        (value && value._type === OBSERVABLE)
-      ) {
-        patchQueue.push(Add(path.concat(name), value));
-        emitPatches(listeners);
-      }
-
       return true;
     },
     deleteProperty(target, name) {
       if (name in target) {
         const t = target[name];
         const type = t._type;
-        if ((!type && typeof t !== "function") || type === OBSERVABLE) {
-          patchQueue.push(Remove(path.concat(name)));
-        }
         if (t.dispose != null) {
           t.dispose();
         }
+        removeKey(name);
         delete target[name];
         emitPatches(listeners);
         return true;
@@ -236,54 +254,66 @@ export function Store(state = {}, actions = {}, name = "", parent = undefined) {
     const s = state[key];
     const t = s._type;
     if (t === OBSERVABLE || typeof s !== "function") {
-      if (t === STORE) {
-        s._path(path.concat(key));
-      }
-      local[key] = s;
+      proxy[key] = s;
     } else {
-      local[key] = computed(s, proxy);
+      proxy[key] = computed(s, proxy);
     }
   });
   Object.keys(actions).forEach(key => {
     const a = actions[key];
     const t = a._type;
-    if (key in local) {
+    if (key in proxy) {
       throw new RangeError("Key overlap between state and actions");
     }
     if (t === ACTION) {
       a.context(proxy);
-      local[key] = a;
+      proxy[key] = a;
     } else {
-      local[key] = a;
+      proxy[key] = a;
     }
   });
-  proxy._snapshot = computed(() => {
-    let temp = staleSnap();
-    const result = {};
-    for (let key in proxy) {
-      const l = local[key];
-      let val;
-      if (l._type !== undefined) {
-        const t = l._type;
-        if (t === OBSERVABLE) {
-          val = l();
-        } else if (t === STORE) {
-          val = l._snapshot;
+  let lastSnap;
+  function diffSnaps(prev, next) {
+    const prevKeys = Object.keys(prev);
+    const nextKeys = Object.keys(next);
+    nextKeys.forEach(key => {
+      if (stores().indexOf(key) === -1 && next[key] !== prev[key]) {
+        if (typeof next[key] !== "object") {
+          patchQueue.push(Add([key], next[key]));
+        } else {
+          // TODO: handle case of unobserved objects in tree
         }
-      } else if (
-        typeof l !== "function" &&
-        nonIterableKeys.indexOf(key) === -1
-      ) {
-        val = l;
       }
-      if (val !== undefined) {
-        result[key] = val;
-      }
+    });
+
+    if (listeners.length > 0) {
+      emitPatches(listeners);
     }
-    return result;
+  }
+  proxy._snapshot = observable({});
+  const snapDisposer = autorun(() => {
+    let init = false;
+    if (lastSnap === undefined) {
+      init = true;
+    }
+    lastSnap = proxy._snapshot;
+    const result = {};
+    observed().forEach(key => {
+      result[key] = proxy[key];
+    });
+    unobserved().forEach(key => {
+      result[key] = proxy[key];
+    });
+    stores().forEach(key => {
+      result[key] = proxy[key]._snapshot;
+    });
+    if (!init) {
+      diffSnaps(lastSnap, result);
+    }
+    proxy._snapshot = result;
   });
   proxy._restore = action(snap => {
-    staleSnap(!staleSnap());
+    // TODO: what about removing keys not found in snap?
     for (let k in snap) {
       const t = local[k]._type;
       if (t === STORE && typeof snap[k] === "object" && snap[k] !== null) {
@@ -306,20 +336,6 @@ export function Store(state = {}, actions = {}, name = "", parent = undefined) {
   };
   proxy._patch = function(patches) {
     apply(proxy, patches);
-  };
-  proxy._path = function(newPath) {
-    if (newPath !== undefined) {
-      path = newPath;
-    } else {
-      return path;
-    }
-  };
-  proxy._parent = function(newParent) {
-    if (newParent !== undefined) {
-      parent = newParent;
-    } else {
-      return parent;
-    }
   };
   proxy._type = STORE;
   return proxy;
@@ -366,6 +382,9 @@ export function action(fn, context) {
       }
       depth = MAX_DEPTH;
       reconciling = false;
+      if (actionPatchEmitter !== undefined) {
+        actionPatchEmitter();
+      }
     }
     actions--;
   };
@@ -436,9 +455,10 @@ export function observable(value) {
     disposed = true;
     flush(observers);
   };
-  data.hasObservers = function() {
-    return observers.length > 0;
-  };
+  // Was used for delayedReaction optimization...
+  // data.hasObservers = function() {
+  //   return observers.length > 0;
+  // };
   Object.freeze(data);
   return data;
 }
@@ -458,24 +478,26 @@ export function computed(thunk, context) {
   const current = observable(undefined);
   let disposed = false;
   let init = true;
-  let delayedReaction = null;
+  // let delayedReaction = null;
   function reaction() {
     const result = thunk.call(context);
     current(result);
   }
-  const computation = function() {
-    if (current.hasObservers() || init || reconciling) {
-      if (init) {
-        init = false;
-      }
-      reaction();
-    } else {
-      delayedReaction = function() {
-        reaction();
-      };
-    }
-  };
-  const dispose = autorun(computation, true);
+  // commented out delayed reaction, explore this optimization later...
+  //   this caused issues with computed not being run on arrays etc...
+  // const computation = function() {
+  //   if (current.hasObservers() || init || reconciling) {
+  //     if (init) {
+  //       init = false;
+  //     }
+  //     reaction();
+  //   } else {
+  //     delayedReaction = function() {
+  //       reaction();
+  //     };
+  //   }
+  // };
+  const dispose = autorun(reaction, true);
   function wrapper() {
     if (arguments.length > 0) {
       throw new RangeError("computed values cannot be set arbitrarily");
@@ -483,10 +505,10 @@ export function computed(thunk, context) {
       if (disposed) {
         return;
       }
-      if (delayedReaction != null) {
-        delayedReaction();
-        delayedReaction = null;
-      }
+      // if (delayedReaction != null) {
+      //   delayedReaction();
+      //   delayedReaction = null;
+      // }
       return current();
     }
   }

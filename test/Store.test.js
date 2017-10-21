@@ -256,3 +256,49 @@ test("Store should apply patches", t => {
   store._patch(patches);
   t.is(store.test, "test123");
 });
+
+test("Cover case of removing nonIterableKey from Store, NOTE: DO NOT DO THIS", t => {
+  const store = Store();
+  t.is(store._type, 2);
+  delete store._type;
+  t.is(store._type, undefined);
+});
+
+test("Store should allow nested Stores to be deleted", t => {
+  const nested = Store({
+    test: "test"
+  });
+  const store = Store({
+    nested
+  });
+  t.is(store.nested.test, "test");
+  delete store.nested;
+  t.is(store.nested, undefined);
+});
+
+test("Store should only emit patches when actions have been reconciled", t => {
+  const store = Store(
+    {
+      counter: 0
+    },
+    {
+      inc: action(function() {
+        this.counter++;
+      })
+    }
+  );
+  let count = 0;
+  const fn = patches => {
+    count++;
+  };
+  store._register(fn);
+  const ten = action(() => {
+    store.inc();
+    store.inc();
+    store.inc();
+    store.inc();
+    store.inc();
+  });
+  ten();
+  t.is(count, 1);
+});

@@ -249,6 +249,21 @@ test("observable array should return proxy that notifies observers on set", t =>
   })
 });
 
+test("observable array should trigger computed as expected", t => {
+  const arr = observable([]);
+  const comp = computed(() => {
+    return arr().reduce((acc, val) => {
+      return acc + val;
+    }, 0);
+  });
+  arr().push(1);
+  t.is(comp(), 1);
+  arr().push(2);
+  t.is(comp(), 3);
+  arr().splice(1, 1);
+  t.is(comp(), 1);
+});
+
 test("observable array should notify observers on mutator function execution", t => {
   const arr = observable([1, 2, 3, 4]);
   let count = 0;
