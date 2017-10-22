@@ -2,6 +2,7 @@ import test from "ava";
 import { Store, observable, computed, action } from "../src";
 import { Add } from "../src/json";
 
+/* no longer valid test with implicit nested stores...
 test("store should throw if given state and action with overlapping key", t => {
   t.throws(() => {
     const store = Store(
@@ -14,6 +15,7 @@ test("store should throw if given state and action with overlapping key", t => {
     );
   });
 });
+*/
 
 test("Store should work with no parameters", t => {
   const store = Store();
@@ -301,4 +303,27 @@ test("Store should only emit patches when actions have been reconciled", t => {
   });
   ten();
   t.is(count, 1);
+});
+
+test("Store should support implicit nested stores", t => {
+  const store = Store(
+    {
+      nested: {
+        test: "test"
+      }
+    },
+    {
+      nested: {
+        change: action(function(val) {
+          this.test = val;
+        }),
+        change2(val) {
+          this.test = val;
+        }
+      }
+    }
+  );
+  t.is(store.nested.test, "test");
+  store.nested.change2("123");
+  t.is(store.nested.test, "123");
 });

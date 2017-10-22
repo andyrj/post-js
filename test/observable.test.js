@@ -79,6 +79,7 @@ test("computed values should update when dependencies update", t => {
   t.is(comp(), "boom - 123");
 });
 
+/* no reason to throw here, we can safely ignore extra parameters sent to a computed value...
 test("computed value should throw if you try to set it's value externally", t => {
   const test = observable("test");
   const test1 = observable("123");
@@ -89,6 +90,7 @@ test("computed value should throw if you try to set it's value externally", t =>
     comp("error");
   });
 });
+*/
 
 test("computed should stop and return only undefined after being disposed", t => {
   let count = 0;

@@ -103,7 +103,7 @@ function emitPatches(listeners) {
         patchQueue.pop();
       }
       actionPatchEmitter = undefined;
-    }
+    };
   }
 }
 
@@ -113,6 +113,7 @@ const nonIterableKeys = [
   "_register",
   "_unregister",
   "_patch",
+  "_parent",
   "_type"
 ];
 
@@ -124,9 +125,10 @@ const nonIterableKeys = [
  * @param {any} [state={}] - Object that defines your state/actions, 
  *   should be made of unobserved values, observables, computed, and actions.
  * @param {any} [actions={}] - Object declaring functions, and actions for store
+ * @param {Store} - Parent Store, used for json refs and nested stores
  * @returns {Store} Proxy to use observables/computed transparently as if POJO.
  */
-export function Store(state = {}, actions = {}) {
+export function Store(state = {}, actions = {}, parent) {
   const local = {};
   let proxy;
   const listeners = [];
@@ -254,26 +256,29 @@ export function Store(state = {}, actions = {}) {
     const s = state[key];
     const t = s._type;
     if (t === OBSERVABLE || typeof s !== "function") {
-      proxy[key] = s;
+      if (t !== STORE && typeof s === "object" && s !== null) {
+        proxy[key] = Store(s, actions[key], proxy);
+      } else {
+        proxy[key] = s;
+      }
     } else {
       proxy[key] = computed(s, proxy);
     }
   });
+  const initLocalKeys = Object.keys(local);
   Object.keys(actions).forEach(key => {
     const a = actions[key];
     const t = a._type;
-    if (key in proxy) {
-      throw new RangeError("Key overlap between state and actions");
-    }
-    if (t === ACTION) {
-      a.context(proxy);
-      proxy[key] = a;
-    } else {
+    if (initLocalKeys.indexOf(key) === -1) {
+      if (t !== ACTION) {
+        a.bind(proxy);
+      }
       proxy[key] = a;
     }
   });
   let lastSnap;
   function diffSnaps(prev, next) {
+    // TODO: decide if we should instead escape hatch unobserved values, as opposed to explicitly defining everything...
     const prevKeys = Object.keys(prev);
     const nextKeys = Object.keys(next);
     nextKeys.forEach(key => {
@@ -337,6 +342,7 @@ export function Store(state = {}, actions = {}) {
   proxy._patch = function(patches) {
     apply(proxy, patches);
   };
+  proxy._parent = observable(parent);
   proxy._type = STORE;
   return proxy;
 }
@@ -499,18 +505,14 @@ export function computed(thunk, context) {
   // };
   const dispose = autorun(reaction, true);
   function wrapper() {
-    if (arguments.length > 0) {
-      throw new RangeError("computed values cannot be set arbitrarily");
-    } else {
-      if (disposed) {
-        return;
-      }
-      // if (delayedReaction != null) {
-      //   delayedReaction();
-      //   delayedReaction = null;
-      // }
-      return current();
+    if (disposed) {
+      return;
     }
+    // if (delayedReaction != null) {
+    //   delayedReaction();
+    //   delayedReaction = null;
+    // }
+    return current();
   }
   wrapper._type = COMPUTED;
   wrapper.dispose = function() {
