@@ -195,11 +195,12 @@ test("Store in operator on pojo/observable/computed/store values only", t => {
   t.is("f" in store, false);
   t.is("_type" in store, false);
   t.is("_snapshot" in store, false);
-  t.is(store._type, 2);
+  t.is(store._type, 1);
   t.is(typeof store._snapshot, "object");
 });
 
 test("Store snapshots", t => {
+  console.log("+++++");
   const store = Store(
     {
       a: "a",
@@ -218,6 +219,7 @@ test("Store snapshots", t => {
   store._restore({ a: "b", b: "a" });
   const snap2 = store._snapshot;
   t.deepEqual(snap2, { a: "b", b: "a" });
+  console.log("-----");
 });
 
 test("Store should allow register and unregister for patch emissions", t => {
@@ -261,7 +263,7 @@ test("Store should apply patches", t => {
 
 test("Cover case of removing nonIterableKey from Store, NOTE: DO NOT DO THIS", t => {
   const store = Store();
-  t.is(store._type, 2);
+  t.is(store._type, 1);
   delete store._type;
   t.is(store._type, undefined);
 });

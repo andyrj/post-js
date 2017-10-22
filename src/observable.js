@@ -4,8 +4,8 @@ const stack = [];
 let actions = 0;
 const MAX_DEPTH = 300;
 const OBSERVABLE = 0;
-const COMPUTED = 1;
-const STORE = 2;
+const STORE = 1;
+const COMPUTED = 2;
 const AUTORUN = 4;
 const ACTION = 3;
 let depth = MAX_DEPTH;
@@ -210,6 +210,7 @@ export function Store(state = {}, actions = {}, parent) {
         target[name] = value;
         addKey(name, value);
       }
+      //emitPatches(listeners);
       return true;
     },
     deleteProperty(target, name) {
@@ -221,7 +222,7 @@ export function Store(state = {}, actions = {}, parent) {
         }
         removeKey(name);
         delete target[name];
-        emitPatches(listeners);
+        //emitPatches(listeners);
         return true;
       } else {
         return false;
@@ -278,7 +279,6 @@ export function Store(state = {}, actions = {}, parent) {
   });
   let lastSnap;
   function diffSnaps(prev, next) {
-    // TODO: decide if we should instead escape hatch unobserved values, as opposed to explicitly defining everything...
     const prevKeys = Object.keys(prev);
     const nextKeys = Object.keys(next);
     nextKeys.forEach(key => {
@@ -289,6 +289,13 @@ export function Store(state = {}, actions = {}, parent) {
           // TODO: handle case of unobserved objects in tree
         }
       }
+      const prevIndex = prevKeys.indexOf(key);
+      if (prevIndex > -1) {
+        prevKeys.splice(prevIndex, 1);
+      }
+    });
+    prevKeys.forEach(key => {
+      patchQueue.push(Remove([key]));
     });
 
     if (listeners.length > 0) {
@@ -318,13 +325,27 @@ export function Store(state = {}, actions = {}, parent) {
     proxy._snapshot = result;
   });
   proxy._restore = action(snap => {
-    // TODO: what about removing keys not found in snap?
-    for (let k in snap) {
-      const t = local[k]._type;
-      if (t === STORE && typeof snap[k] === "object" && snap[k] !== null) {
-        proxy[k]._restore(snap[k]);
+    const prevKeys = Object.keys(proxy);
+    for (let key in snap) {
+      const t = local[key]._type;
+      if (t === STORE && typeof snap[key] === "object" && snap[key] !== null) {
+        proxy[key]._restore(snap[key]);
       } else {
-        proxy[k] = snap[k];
+        proxy[key] = snap[key];
+      }
+      const prevIndex = prevKeys.indexOf(key);
+      if (prevIndex > -1) {
+        prevKeys.splice(prevIndex, 1);
+      }
+    }
+    let i = 0;
+    const prevLen = prevKeys.length;
+    for (; i < prevLen; i++) {
+      const key = prevKeys[i];
+      const v = local[key];
+      const t = v._type;
+      if (nonIterableKeys.indexOf(key) === -1 && (!t || t <= STORE )) {
+        delete proxy[key];
       }
     }
   });
