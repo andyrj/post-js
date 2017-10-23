@@ -29,27 +29,25 @@ const store = Store(
     }
   },
   { // actions: second param to store is the actions object, all keys are turned into actions...
-    updateData(firstName, lastName, count) {
+    updateData: action(function(firstName, lastName, count) {
       this.counter = count;
       this.first = firstName;
       this.last = lastName;
-    }
+    })
   }
 );
 
-// after instantiation you can update your store via calling it as a function...
-store("data", "test", "123");  // this will add the key { test: "123" }, to your stores state...
-store("data", "stuff", 0, { observed: false }); // add unobserved data... 
-store("action", "updateTest", function(str) { this.test = str; }); // this adds an action to your store
-store("computed", "testCount", function() { return `${this.test}: ${this.counter}`; }) // addes computed value
-/* nested store - recursive structure... */
-store("store", "nested", { 
-  state: { foo: "BAR" }, 
-  actions: { 
-    fizz: function(){ this.foo = "buzz"; } 
-    }
-  }
-);
+// transparently adds and removes values to the proxied observable store...
+store.test = "123"; // default sets an unobserved value
+store.test2 = observable("456"); // explicitly set observable value
+store.updateTest2 = action(function(val) { this.test2 = val; });
+store.asyncUpdate = () => {
+  // you can do whatever async code you like in a normal function
+  // when you are ready to update your store's data simply call a sync action
+  setTimeout(() => {
+    this.updateTest2("pretend I fetched this from a DB/http req");
+  }, 3000);
+};
 
 // equivalent to mobx autorun...
 autorun(() => {
@@ -62,25 +60,26 @@ autorun(() => {
 
 // you can register to receive json patches
 const fn = (patches) => console.log(patches);
-store("register", fn);
+store._register(fn);
 // you can also unregister from the patch stream...
-store("unregister", fn);
+store._unregister(fn);
 
 // actions are "atomic" in in that the changes are batched like actions in mobx...
+// so autorun is de-glitched and guaranteed to not be stale...
 store.updateData("Jon", "Doe", 10);
 
 // you can retrieve the current snapshot of a store
 // includes all observed/unobserved data and nested stores, skips computed/actions...
 // haven't decided what to do with functions observed/unobserved stored in the tree...
 // we could fn.toString() in snapshot/patch and in apply eval(strFn)...  but I'm hesitant to do so...
-let snap = store("snapshot");
+let snap = store._snapshot;
 
-// will log all keys excluding actions
+// will log all keys excluding actions and functions...
 for (let v in store) {
   console.log(`${v}: ${v in store}`);
 }
 
-store("dispose"); // disposes of observables and delete's all keys for this store and all nested stores...
+store._dispose()); // disposes of observables and delete's all keys for this store and all nested stores...
 
 ```
 
