@@ -256,11 +256,11 @@ export function Store(state = {}, actions = {}, parent) {
   Object.keys(state).forEach(key => {
     const s = state[key];
     const t = s._type;
-    if (t === OBSERVABLE || typeof s !== "function") {
+    if (typeof s !== "function") {
       if (t !== STORE && typeof s === "object" && s !== null) {
         proxy[key] = Store(s, actions[key], proxy);
       } else {
-        proxy[key] = s;
+        proxy[key] = observable(s);
       }
     } else {
       proxy[key] = computed(s, proxy);

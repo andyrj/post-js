@@ -157,7 +157,7 @@ test("Store should only iterate observable, computed, and pojo non-function keys
 });
 
 test("Store should allow observable to be set to undefined", t => {
-  const store = Store({ a: observable("a") });
+  const store = Store({ a: "a" });
   store.a = undefined;
   t.is(store.a, undefined);
 });
@@ -204,7 +204,7 @@ test("Store snapshots", t => {
   const store = Store(
     {
       a: "a",
-      b: observable("b"),
+      b: "b",
       c: function() {
         return `${this.a} + ${this.b}`;
       }
@@ -238,16 +238,11 @@ test("Store should allow register and unregister for patch emissions", t => {
   t.is(count, 1);
 });
 
-test("Store should allow explicitly provided nested stores", t => {
-  const store1 = Store(
-    {
-      test: "stuff"
-    },
-    {},
-    ["nested"]
-  );
+test("Store should allow nested stores", t => {
   const store = Store({
-    nested: store1
+    nested: {
+      test: "stuff"
+    }
   });
   t.deepEqual(store._snapshot, { nested: { test: "stuff" } });
   store._restore({ nested: { test: "test" } });
