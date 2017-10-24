@@ -3,11 +3,12 @@ import { apply, Add, Remove } from "./json";
 const stack = [];
 let actions = 0;
 const MAX_DEPTH = 300;
-const OBSERVABLE = 0;
-const STORE = 1;
-const COMPUTED = 2;
-const AUTORUN = 4;
-const ACTION = 3;
+const UNOBSERVED = 0;
+const OBSERVABLE = 1;
+const STORE = 2;
+const COMPUTED = 3;
+const ACTION = 4;
+const AUTORUN = 5;
 let depth = MAX_DEPTH;
 const transaction = { o: [], c: [], a: [] };
 let reconciling = false;
@@ -139,7 +140,7 @@ export function Store(state = {}, actions = {}, parent) {
     if (nonIterableKeys.indexOf(name) > -1) {
       return;
     }
-    const type = value._type;
+    const type = value && value._type;
     if (!type && typeof value !== "function") {
       unobserved().push(name);
     } else if (type === STORE) {
@@ -172,8 +173,8 @@ export function Store(state = {}, actions = {}, parent) {
     get(target, name) {
       if (name in target) {
         if (
-          target[name]._type === OBSERVABLE ||
-          target[name]._type === COMPUTED
+          target[name] != null &&
+          (target[name]._type === OBSERVABLE || target[name]._type === COMPUTED)
         ) {
           return target[name]();
         }
@@ -183,46 +184,47 @@ export function Store(state = {}, actions = {}, parent) {
       }
     },
     set(target, name, value) {
-      let v;
-      if (value) {
-        v = value._type;
-      }
+      const v = value != null ? value._type : undefined;
       if (v === COMPUTED || v === ACTION) {
-        value.context(proxy);
+        value = value.context(proxy);
       }
       if (name in target) {
-        const t = target[name]._type;
-        if (t === OBSERVABLE) {
-          if (v === OBSERVABLE) {
-            target[name](value());
-          } else {
-            target[name](value);
-          }
-        } else {
-          if (t && typeof target[name].dispose === "function") {
-            target[name].dispose();
-            removeKey(name);
-          }
-          target[name] = value;
-          addKey(name, value);
+        const tar = target[name];
+        const t = tar != null ? tar._type : undefined;
+        if (v === OBSERVABLE && t === OBSERVABLE) {
+          value = value(); // unwrap nested observables to avoid observable(observable("stuff"))
+        } else if (t && typeof tar.dispose === "function") {
+          tar.dispose(); // clean up if setting existing key that is COMPUTED or STORE
+          removeKey(name);
         }
       } else {
-        target[name] = value;
-        addKey(name, value);
+        if (
+          typeof value !== "function" &&
+          v === undefined &&
+          v !== UNOBSERVED
+        ) {
+          if (typeof value === "object" && value !== null) {
+            value = Store(value); // by default upgrade objects to nested stores...
+          } else {
+            value = observable(value); // by default upgrade values to observables
+          }
+        }
       }
-      //emitPatches(listeners);
+      if (v === UNOBSERVED) {
+        value = value(); // unwrap unobserved values...
+      }
+      target[name] = value;
+      addKey(name);
       return true;
     },
     deleteProperty(target, name) {
       if (name in target) {
         const t = target[name];
-        const type = t._type;
         if (t.dispose != null) {
           t.dispose();
         }
         removeKey(name);
         delete target[name];
-        //emitPatches(listeners);
         return true;
       } else {
         return false;
@@ -231,7 +233,8 @@ export function Store(state = {}, actions = {}, parent) {
     has(target, name) {
       if (name in target && nonIterableKeys.indexOf(name) === -1) {
         const isFunc = typeof target[name] === "function";
-        const type = target[name]._type;
+        const tar = target[name];
+        const type = tar != null ? tar._type : undefined;
         if (isFunc) {
           if (type < ACTION) {
             return true;
@@ -247,7 +250,8 @@ export function Store(state = {}, actions = {}, parent) {
     },
     ownKeys(target) {
       return Reflect.ownKeys(target).filter(k => {
-        const type = target[k]._type;
+        const tar = target[k];
+        const type = tar != null ? tar._type : undefined;
         return (!type && typeof target[k] !== "function") || type < ACTION;
       });
     }

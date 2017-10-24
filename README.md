@@ -17,10 +17,10 @@ import { Store, autorun } from "post-js"
 
 const store = Store(
   { // state: first param
-    counter: 0, // by default primitives passed in will be made observable
+    counter: 0, // by default primitives will be made observable
     first: "Andy",
     last: "Johnson",
-    list: [1,2,3,4,5], // array mutable methods are wrapped to maintain observability...
+    list: [1,2,3,4,5], // array mutable methods are wrapped via proxy to maintain observability...
     fullName() { // methods passed to state are computed values
       return `${this.first} ${this.last}`;
     },
@@ -28,7 +28,8 @@ const store = Store(
       return `${this.fullName}: ${this.counter}`;
     }
   },
-  { // actions: second param to store is the actions object, all keys are turned into actions...
+  { // actions: second param to store is the actions object, all keys will be either 
+    //functions (allowing for async) or actions, they will all be bind(store), or action.context(store) automatically...
     updateData: action(function(firstName, lastName, count) {
       this.counter = count;
       this.first = firstName;
@@ -38,8 +39,8 @@ const store = Store(
 );
 
 // transparently adds and removes values to the proxied observable store...
-store.test = "123"; // default sets an unobserved value
-store.test2 = observable("456"); // explicitly set observable value
+store.test = "123"; // default creates an observable value
+store.test2 = unobserved("456"); // escape hatch for unobserved values
 store.updateTest2 = action(function(val) { this.test2 = val; });
 store.asyncUpdate = () => {
   // you can do whatever async code you like in a normal function

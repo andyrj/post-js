@@ -19,14 +19,14 @@ test("store should throw if given state and action with overlapping key", t => {
 
 test("Store should work with no parameters", t => {
   const store = Store();
-  store.test = observable("Test");
+  store.test = "Test";
   t.is(store.test, "Test");
 });
 
 test("Store should allow observables to be accessed as though they are vanilla js objects", t => {
   const store = Store({
-    first: observable("Andy"),
-    last: observable("Johnson")
+    first: "Andy",
+    last: "Johnson"
   });
 
   t.is(store.first, "Andy");
@@ -44,10 +44,10 @@ test("Store should allow unobserved data access and update like normal", t => {
 
 test("Store should replace observable transparently", t => {
   const store = Store({
-    first: observable("Andy")
+    first: "Andy"
   })
   t.is(store.first, "Andy");
-  store.first = observable("Test");
+  store.first = "Test";
   t.is(store.first, "Test");
   store.first = "boom";
   t.is(store.first, "boom");
@@ -75,8 +75,8 @@ test("Store should return undefined when trying to access key that has not been 
 
 test("Store should work with delete", t => {
   const store = Store({
-    first: observable("Andy"),
-    last: observable("Johnson"),
+    first: "Andy",
+    last: "Johnson",
     fullName() {
       return `${this.first} ${this.last}`;
     },
@@ -105,12 +105,12 @@ test("Store should throw if you try to delete non-existent key", t => {
 
 test("Store should allow updating observable and unobservable values transparently", t => {
   const store = Store({
-    test: observable("test"),
+    test: "test",
     unob: "123"
   });
   t.is(store.test, "test");
   t.is(store.unob, "123");
-  store.test = observable("foobar");
+  store.test = "foobar";
   t.is(store.test, "foobar");
   store.test = "boom";
   t.is(store.test, "boom");
@@ -137,7 +137,7 @@ test("Store should only iterate observable, computed, and pojo non-function keys
   const store = Store(
     {
       a: "a",
-      b: observable("b"),
+      b: "b",
       c: function() {
         return `${this.a} + ${this.b}`;
       }
@@ -165,7 +165,7 @@ test("Store should allow observable to be set to undefined", t => {
 test("Store should automatically provide this context to computed values", t => {
   const store = Store({
     a: "a",
-    b: observable("b"),
+    b: "b",
     c: function() {
       return `${this.a} + ${this.b}`;
     }
@@ -177,7 +177,7 @@ test("Store in operator on pojo/observable/computed/store values only", t => {
   const store = Store(
     {
       a: "a",
-      b: observable("b"),
+      b: "b",
       c: function() {
         return `${this.a} + ${this.b}`;
       }
@@ -224,7 +224,7 @@ test("Store snapshots", t => {
 
 test("Store should allow register and unregister for patch emissions", t => {
   const store = Store({
-    test: observable("test")
+    test: "test"
   });
   let count = 0;
   const patchHandler = patches => {
