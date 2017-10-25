@@ -43,13 +43,13 @@
     ],
     "space-before-function-paren": 0,
     "max-statements": [
-      2, 24
+      2, 25
     ],
     "max-depth": [
       2, 5
     ],
     "complexity": [
-      2, 11
+      2, 12
     ],
     "max-params": [
       2, 5

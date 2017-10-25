@@ -221,14 +221,12 @@ test("Store snapshots", t => {
 });
 
 test("Store should allow register and unregister for patch emissions", t => {
-  console.log("+++++");
   const store = Store({
     test: "test"
   });
   let count = 0;
   const patchHandler = patches => {
     count++;
-    console.log(patches, count);
   };
   store._register(patchHandler);
   store._register(patchHandler);
@@ -236,7 +234,6 @@ test("Store should allow register and unregister for patch emissions", t => {
   store._unregister(patchHandler);
   store._unregister(patchHandler);
   t.is(count, 1);
-  console.log("-----");
 });
 
 test("Store should allow nested stores", t => {

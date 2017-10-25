@@ -12,7 +12,8 @@ const AUTORUN = 5;
 let depth = MAX_DEPTH;
 const transaction = { o: [], c: [], a: [] };
 let reconciling = false;
-const patchQueue = [];
+// move patch queue into Store closure...
+//const patchQueue = [];
 
 const arrayMutators = [
   "splice",
@@ -87,21 +88,21 @@ function extendArray(val, observers) {
 }
 
 let actionPatchEmitter;
-function emitPatches(listeners) {
+function emitPatches(listeners, queue) {
   if (actions === 0) {
     listeners.forEach(l => {
-      l(patchQueue);
+      l(queue);
     });
-    while (patchQueue.length > 0) {
-      patchQueue.pop();
+    while (queue.length > 0) {
+      queue.pop();
     }
   } else {
     actionPatchEmitter = function() {
       listeners.forEach(l => {
-        l(patchQueue);
+        l(queue);
       });
-      while (patchQueue.length > 0) {
-        patchQueue.pop();
+      while (queue.length > 0) {
+        queue.pop();
       }
       actionPatchEmitter = undefined;
     };
@@ -133,6 +134,7 @@ export function Store(state = {}, actions = {}, parent) {
   const local = {};
   let proxy;
   const listeners = [];
+  const patchQueue = [];
   const observed = observable([]);
   const unobserved = observable([]);
   const stores = observable([]);
@@ -188,14 +190,20 @@ export function Store(state = {}, actions = {}, parent) {
       if (v === COMPUTED || v === ACTION) {
         value.context(proxy);
       }
+      const tar = target[name];
+      const t = tar != null ? tar._type : undefined;
       if (name in target) {
-        const tar = target[name];
-        const t = tar != null ? tar._type : undefined;
         if (v === OBSERVABLE && t === OBSERVABLE) {
           value = value(); // unwrap nested observables to avoid observable(observable("stuff"))
-        } else if (t && typeof tar.dispose === "function") {
-          tar.dispose(); // clean up if setting existing key that is COMPUTED or STORE
-          removeKey(name);
+        } 
+        if (t === OBSERVABLE) {
+          target[name](value);
+        } else {
+          if (t && typeof tar.dispose === "function") {
+            tar.dispose(); // clean up if setting existing key that is COMPUTED or STORE
+            removeKey(name);
+          }
+          target[name] = value;
         }
       } else {
         if (
@@ -208,13 +216,12 @@ export function Store(state = {}, actions = {}, parent) {
           } else {
             value = observable(value); // by default upgrade values to observables
           }
+        } else if (v === UNOBSERVED) {
+          value = value(); // unwrap unobserved values...
         }
+        addKey(name, value);
+        target[name] = value;
       }
-      if (v === UNOBSERVED) {
-        value = value(); // unwrap unobserved values...
-      }
-      target[name] = value;
-      addKey(name, value);
       return true;
     },
     deleteProperty(target, name) {
@@ -281,31 +288,6 @@ export function Store(state = {}, actions = {}, parent) {
       proxy[key] = a;
     }
   });
-  let lastSnap;
-  function diffSnaps(prev, next) {
-    const prevKeys = Object.keys(prev);
-    const nextKeys = Object.keys(next);
-    nextKeys.forEach(key => {
-      if (stores().indexOf(key) === -1 && next[key] !== prev[key]) {
-        if (typeof next[key] !== "object") {
-          patchQueue.push(Add([key], next[key]));
-        } else {
-          // TODO: handle case of unobserved objects in tree
-        }
-      }
-      const prevIndex = prevKeys.indexOf(key);
-      if (prevIndex > -1) {
-        prevKeys.splice(prevIndex, 1);
-      }
-    });
-    prevKeys.forEach(key => {
-      patchQueue.push(Remove([key]));
-    });
-
-    if (listeners.length > 0) {
-      emitPatches(listeners);
-    }
-  }
   proxy._restore = action(snap => {
     const prevKeys = Object.keys(proxy);
     for (let key in snap) {
@@ -347,6 +329,31 @@ export function Store(state = {}, actions = {}, parent) {
   };
   proxy._parent = observable(parent);
   proxy._type = STORE;
+  let lastSnap;
+  function diffSnaps(prev, next) {
+    const prevKeys = Object.keys(prev);
+    const nextKeys = Object.keys(next);
+    nextKeys.forEach(key => {
+      if (stores().indexOf(key) === -1 && next[key] !== prev[key]) {
+        if (typeof next[key] !== "object") {
+          patchQueue.push(Add([key], next[key]));
+        } else {
+          // TODO: handle case of unobserved objects in tree
+        }
+      }
+      const prevIndex = prevKeys.indexOf(key);
+      if (prevIndex > -1) {
+        prevKeys.splice(prevIndex, 1);
+      }
+    });
+    prevKeys.forEach(key => {
+      patchQueue.push(Remove([key]));
+    });
+
+    if (listeners.length > 0) {
+      emitPatches(listeners, patchQueue);
+    }
+  }
   proxy._snapshot = observable({});
   const snapDisposer = autorun(() => {
     let init = false;
@@ -365,6 +372,7 @@ export function Store(state = {}, actions = {}, parent) {
       result[key] = proxy[key]._snapshot;
     });
     if (!init) {
+      //console.log(proxy, observed(), unobserved(), stores());
       diffSnaps(lastSnap, result);
     }
     proxy._snapshot = result;
