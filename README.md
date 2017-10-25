@@ -4,7 +4,7 @@
 [![Codacy Badge](https://api.codacy.com/project/badge/Coverage/35f30cca20ad498f9da397cdb8e3c2bf)](https://www.codacy.com/app/andyrjohnson82/post-js?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=andyrj/post-js&amp;utm_campaign=Badge_Coverage)
 [![Build Status](https://travis-ci.org/andyrj/post-js.svg?branch=master)](https://travis-ci.org/andyrj/post-js)
 
-*WIP* This aims to be a a minimalist re-implementation of mobx-state-tree.
+*WIP* This aims to be a minimalist re-implementation of mobx-state-tree.
 
 PENDING:
 1. JSON ref - to emulate graph with state tree
