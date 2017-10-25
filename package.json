@@ -1,6 +1,6 @@
 {
   "name": "post-js",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "* WIP * Proxied Observable State Tree - mobx inspired state tree built with s-js and fast-json-patch",
   "main": "dist/post.js",
   "jsnext:main": "src/index.js",

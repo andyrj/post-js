@@ -1,11 +1,14 @@
 # post-js (Proxied Observable State Tree)
-*WIP* This aims to be a a minimalist re-implementation of mobx-state-tree, currently depending on s-js and fast-json-patch.  I plan to remove these two dependencies as fast-json-patch pulls in some large dependencies, and if I get rid of s-js as a dependency I can get rid of some strange cases where equality gets screwed up storeing state in functions instead of just accessing via proxy.
+*WIP* This aims to be a a minimalist re-implementation of mobx-state-tree.
 
-This package utilizes Proxy, to create a "transparent" pojo-ish wrapper for s-js, so ie and opera mini are unsupported.
+PENDING:
+1. JSON ref - to emulate graph with state tree
+2. finish observable array and patch emission code
+3. get test coverage back to 100/100 with change back to implicit observable state with escape hatch via. unobserved(val) 
+
+This package utilizes Proxy, to create a "transparent" pojo-ish observable state tree.
 
 The main thing this package does not plan to have support for that is in mobx-state-tree would be the runtime type system.
-
-Working on this is not high on my priorities and I wouldn't suggest anyone use this in any real way, it is still just an experiment.
 
 Install
 ```
