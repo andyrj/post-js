@@ -1,4 +1,9 @@
 # post-js (Proxied Observable State Tree)
+[![npm version](https://badge.fury.io/js/post-js.svg)](https://badge.fury.io/js/post-js)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/35f30cca20ad498f9da397cdb8e3c2bf)](https://www.codacy.com/app/andyrjohnson82/post-js?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=andyrj/post-js&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://api.codacy.com/project/badge/Coverage/35f30cca20ad498f9da397cdb8e3c2bf)](https://www.codacy.com/app/andyrjohnson82/post-js?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=andyrj/post-js&amp;utm_campaign=Badge_Coverage)
+[![Build Status](https://travis-ci.org/andyrj/obnano.svg?branch=master)](https://travis-ci.org/andyrj/obnano)
+
 *WIP* This aims to be a a minimalist re-implementation of mobx-state-tree.
 
 PENDING:
