@@ -220,7 +220,7 @@ test("computeds that depend on other computed values should not output stale or 
 });
 
 test("observable array should return proxy that notifies observers on set", t => {
-  const arr = observable([1, 2, 3, observable(4)]);
+  const arr = observable([1, 2, 3, 4]);
   let count = 0;
   let sum = 0;
   autorun(() => {
@@ -228,27 +228,27 @@ test("observable array should return proxy that notifies observers on set", t =>
     sum = arr().reduce((acc, val) => {
       if (val == null) {
         return acc;
-      } else if (val._type === 0) {
+      } else if (val._type === 1) {
         return acc + val();
       }
       return acc + val;
     }, 0);
   });
-  arr()[3] = observable(3);
-  t.is(count, 3);
+  arr()[3] = 3;
+  t.is(count, 2);
   t.is(sum, 9);
   arr()[10] = 1; // test that it also works on sparse arrays...
-  t.is(count, 4);
+  t.is(count, 3);
   t.is(sum, 10);
   arr()[0] = 0;
-  t.is(count, 5);
+  t.is(count, 4);
   t.is(sum, 9);
   arr()[3] = 5;
-  t.is(count, 7);
+  t.is(count, 5);
   t.is(sum, 11);
   t.throws(() => {
     arr()["foo"] = false;
-  })
+  });
 });
 
 test("observable array should trigger computed as expected", t => {
@@ -297,6 +297,31 @@ test("updating an observable array should work as epxected", t => {
   t.deepEqual(arr(), [1, 2, 3]);
   reset();
   t.deepEqual(arr(), []);
+});
+
+test("observable array of observables should trigger on children and container updates", t => {
+  const arr = observable([1, observable(2)]);
+  let count = 0;
+  let sum = 0;
+  autorun(() => {
+    count++;
+    sum = arr().reduce((acc, val) => {
+      if (val == null) {
+        return acc;
+      } else if (val._type === 1) {
+        return acc + val();
+      }
+      return acc + val;
+    }, 0);
+  });
+  t.is(count, 1);
+  t.is(sum, 3);
+  arr()[1] = 3;
+  t.is(count, 3);
+  t.is(sum, 4);
+  arr()[1] = observable(2);
+  t.is(count, 5);
+  t.is(sum, 3);
 });
 
 test("circular dependencies should short circuit after MAX_DEPTH iterations", t => {

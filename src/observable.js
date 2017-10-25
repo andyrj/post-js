@@ -12,8 +12,6 @@ const AUTORUN = 5;
 let depth = MAX_DEPTH;
 const transaction = { o: [], c: [], a: [] };
 let reconciling = false;
-// move patch queue into Store closure...
-//const patchQueue = [];
 
 const arrayMutators = [
   "splice",
@@ -24,6 +22,14 @@ const arrayMutators = [
   "copyWithin",
   "reverse"
 ];
+
+export function unobserved(val) {
+  const fn = function() {
+    return val;
+  }
+  fn._type = UNOBSERVED;
+  return fn;
+}
 
 function notifyObservers(obs) {
   obs.forEach(o => {
@@ -372,7 +378,6 @@ export function Store(state = {}, actions = {}, parent) {
       result[key] = proxy[key]._snapshot;
     });
     if (!init) {
-      //console.log(proxy, observed(), unobserved(), stores());
       diffSnaps(lastSnap, result);
     }
     proxy._snapshot = result;
