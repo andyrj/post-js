@@ -140,7 +140,7 @@ export function Store(state = {}, actions = {}, parent) {
     if (nonIterableKeys.indexOf(name) > -1) {
       return;
     }
-    const type = value && value._type;
+    const type = value != null ? value._type : undefined;
     if (!type && typeof value !== "function") {
       unobserved().push(name);
     } else if (type === STORE) {
@@ -186,7 +186,7 @@ export function Store(state = {}, actions = {}, parent) {
     set(target, name, value) {
       const v = value != null ? value._type : undefined;
       if (v === COMPUTED || v === ACTION) {
-        value = value.context(proxy);
+        value.context(proxy);
       }
       if (name in target) {
         const tar = target[name];
@@ -214,7 +214,7 @@ export function Store(state = {}, actions = {}, parent) {
         value = value(); // unwrap unobserved values...
       }
       target[name] = value;
-      addKey(name);
+      addKey(name, value);
       return true;
     },
     deleteProperty(target, name) {
@@ -232,8 +232,8 @@ export function Store(state = {}, actions = {}, parent) {
     },
     has(target, name) {
       if (name in target && nonIterableKeys.indexOf(name) === -1) {
-        const isFunc = typeof target[name] === "function";
         const tar = target[name];
+        const isFunc = typeof tar === "function";
         const type = tar != null ? tar._type : undefined;
         if (isFunc) {
           if (type < ACTION) {
@@ -259,7 +259,7 @@ export function Store(state = {}, actions = {}, parent) {
   proxy = new Proxy(local, storeHandler);
   Object.keys(state).forEach(key => {
     const s = state[key];
-    const t = s._type;
+    const t = s != null ? s._type : undefined;
     if (typeof s !== "function") {
       if (t !== STORE && typeof s === "object" && s !== null) {
         proxy[key] = Store(s, actions[key], proxy);
@@ -273,7 +273,7 @@ export function Store(state = {}, actions = {}, parent) {
   const initLocalKeys = Object.keys(local);
   Object.keys(actions).forEach(key => {
     const a = actions[key];
-    const t = a._type;
+    const t = a != null ? a._type : undefined;
     if (initLocalKeys.indexOf(key) === -1) {
       if (t !== ACTION) {
         a.bind(proxy);
@@ -306,28 +306,6 @@ export function Store(state = {}, actions = {}, parent) {
       emitPatches(listeners);
     }
   }
-  proxy._snapshot = observable({});
-  const snapDisposer = autorun(() => {
-    let init = false;
-    if (lastSnap === undefined) {
-      init = true;
-    }
-    lastSnap = proxy._snapshot;
-    const result = {};
-    observed().forEach(key => {
-      result[key] = proxy[key];
-    });
-    unobserved().forEach(key => {
-      result[key] = proxy[key];
-    });
-    stores().forEach(key => {
-      result[key] = proxy[key]._snapshot;
-    });
-    if (!init) {
-      diffSnaps(lastSnap, result);
-    }
-    proxy._snapshot = result;
-  });
   proxy._restore = action(snap => {
     const prevKeys = Object.keys(proxy);
     for (let key in snap) {
@@ -369,6 +347,28 @@ export function Store(state = {}, actions = {}, parent) {
   };
   proxy._parent = observable(parent);
   proxy._type = STORE;
+  proxy._snapshot = observable({});
+  const snapDisposer = autorun(() => {
+    let init = false;
+    if (lastSnap === undefined) {
+      init = true;
+    }
+    lastSnap = proxy._snapshot;
+    const result = {};
+    observed().forEach(key => {
+      result[key] = proxy[key];
+    });
+    unobserved().forEach(key => {
+      result[key] = proxy[key];
+    });
+    stores().forEach(key => {
+      result[key] = proxy[key]._snapshot;
+    });
+    if (!init) {
+      diffSnaps(lastSnap, result);
+    }
+    proxy._snapshot = result;
+  });
   return proxy;
 }
 
