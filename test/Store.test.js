@@ -289,7 +289,8 @@ test("Store should support implicit nested stores", t => {
       nested: {
         change: action((ctx, val) => (ctx.test = val)),
         change2(ctx, val) {
-          ctx.test = val;
+          //console.log(arguments);
+          ctx.change(val);
         }
       }
     }

@@ -218,7 +218,7 @@ export function Store(state = {}, actions = {}, parent) {
           v !== UNOBSERVED
         ) {
           if (typeof value === "object" && value !== null) {
-            value = Store(value); // by default upgrade objects to nested stores...
+            value = Store(value, proxy); // by default upgrade objects to nested stores...
           } else {
             value = observable(value); // by default upgrade values to observables
           }
@@ -289,9 +289,8 @@ export function Store(state = {}, actions = {}, parent) {
     const t = a != null ? a._type : undefined;
     if (initLocalKeys.indexOf(key) === -1) {
       if (t !== ACTION) {
-        proxy[key] = () => {
-          const args = [proxy, ...arguments];
-          a.apply(undefined, args); // wrap async actions providing context to first parameter...
+        proxy[key] = function() {
+          a(proxy, ...arguments); // wrap async actions providing context to first parameter...
         };
       } else {
         proxy[key] = a;
@@ -403,8 +402,7 @@ function conditionalDec(condition, count) {
 export function action(fn, context) {
   const func = function() {
     actions++;
-    const args = [context, ...arguments];
-    fn.apply(undefined, args);
+    fn(context, ...arguments);
     if (actions === 1) {
       reconciling = true;
       while (
