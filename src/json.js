@@ -122,10 +122,14 @@ function walkPath(doc, arr) {
   const prop = clone.pop();
   let parent;
   while (clone.length > 0) {
+    let entry = clone.shift();
+    if (entry === "..") {
+      entry = "_parent"; // allow walking up the tree via _parent reference...
+    }
     if (parent == null) {
-      parent = doc[clone.shift()];
+      parent = doc[entry];
     } else {
-      parent = parent[clone.shift()];
+      parent = parent[entry];
     }
   }
   return { parent, prop };
@@ -214,4 +218,15 @@ export function Copy(from, path) {
 
 export function Test(path, value) {
   return { op: "test", path: arrToPointer(path), value };
+}
+
+export function Ref(doc, path) {
+  return function() {
+    const { parent, prop } = walkPath(doc, path);
+    if (arguments.length > 0) {
+      parent[prop] = arguments[0];
+    } else {
+      return parent[prop];
+    }
+  }
 }

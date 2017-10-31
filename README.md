@@ -7,9 +7,8 @@
 *WIP* This aims to be a a minimalist re-implementation of mobx-state-tree.
 
 PENDING:
-1. JSON ref - to emulate graph with state tree
-2. finish observable array and patch emission code
-3. get test coverage back to 100/100 with change back to implicit observable state with escape hatch via. unobserved(val) 
+1. finish observable array and patch emission code
+2. get test coverage back to 100/100 with change back to implicit observable state with escape hatch via. unobserved(val) 
 
 This package utilizes Proxy, to create a "transparent" pojo-ish observable state tree.
 
