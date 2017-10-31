@@ -20,7 +20,14 @@ $ npm install --save post-js
 ```
 
 ```js
-import { Store, autorun } from "post-js"
+import {
+  Store,
+  unobserved,
+  autorun,
+  action,
+  computed,
+  observable
+} from "post-js";
 
 const store = Store(
   { // state: first param
@@ -42,7 +49,13 @@ const store = Store(
       ctx.counter = count;
       ctx.first = firstName;
       ctx.last = lastName;
-    })
+    }),
+    asyncUpdate: (ctx, firstName, lastName, count) => {
+      // using setTimeout as an example of some type of async code...
+      setTimeout(() => {
+        ctx.updateData(firstName, lastName, count);
+      }, 3000);
+    }
   }
 );
 
@@ -50,26 +63,30 @@ const store = Store(
 store.test = "123"; // default creates an observable value
 store.test2 = unobserved("456"); // escape hatch for unobserved values
 store.updateTest2 = action((ctx, val) => { ctx.test2 = val; });
-store.asyncUpdate = ctx => {
+store.asyncTest2 = () => {
   // you can do whatever async code you like in a normal function
   // when you are ready to update your store's data simply call a sync action
   setTimeout(() => {
-    ctx.updateTest2("pretend I fetched this from a DB/http req");
+    // if add an async action after init, you need to reference
+    // your store/nested store instead of relying on context being
+    // provided to your function as the first parameter of your function...
+    store.updateTest2("pretend I fetched this from a DB/http req");
   }, 3000);
 };
 
 // equivalent to mobx autorun...
-autorun(() => {
+const fullNameDisposer = autorun(() => {
   console.log(store.fullName);
 });
 
-autorun(() => {
+const fullCountDisposer = autorun(() => {
   console.log(store.fullCount);
 });
 
 // you can register to receive json patches
-const fn = (patches) => console.log(patches);
+const fn = patches => console.log(patches);
 store._register(fn);
+store.test = "test123"; // will console.log() -> [{ op: "add", path: "/test", value: "test123" }]
 // you can also unregister from the patch stream...
 store._unregister(fn);
 
@@ -81,15 +98,54 @@ store.updateData("Jon", "Doe", 10);
 // includes all observed/unobserved data and nested stores, skips computed/actions...
 // haven't decided what to do with functions observed/unobserved stored in the tree...
 // we could fn.toString() in snapshot/patch and in apply eval(strFn)...  but I'm hesitant to do so...
-let snap = store._snapshot;
+console.log(store._snapshot);
 
 // will log all keys excluding actions and functions...
-for (let v in store) {
+for (let v in store._snapshot) {
   console.log(`${v}: ${v in store}`);
 }
 
+fullNameDisposer(); // autoruns can be disposed to remove observable references and prevent further execution
+fullCountDisposer();
 store._dispose()); // disposes of observables and delete's all keys for this store and all nested stores...
 
+// you can also use the observable primitives directly without the pojo proxy wrapper
+const first = observable("Andy");
+const last = observable("Johnson");
+const counter = observable(0);
+const fullName = computed(() => `${first()} ${last()}`);
+const fullCount = computed(() => `${fullName()}: ${counter()}`);
+
+const plainFullNameDisposer = autorun(() => {
+  console.log(fullName());
+});
+const plainFullCountDisposer = autorun(() => {
+  console.log(fullCount());
+});
+
+// unbatched updates
+// will trigger autoruns for each statement below...
+counter(1);
+first("Jon");
+last("Doe");
+
+// batched updates via actions
+// first param in action needs to be provided as it will be replaced
+// with the undefined context and shouldn't be used...
+const updateFull = action((ctx, firstName, lastName, count) => {
+  first(firstName);
+  last(lastName);
+  counter(count);
+});
+
+// will trigger one run of each of the above active autoruns
+updateFull("Andy", "Johnson", 9001);
+
+// you can manually dispose of autoruns and computed values
+plainFullNameDisposer();
+plainFullCountDisposer();
+fullName.dispose();
+fullCount.dispose();
 ```
 
 ## License
