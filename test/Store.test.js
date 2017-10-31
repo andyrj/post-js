@@ -2,21 +2,6 @@ import test from "ava";
 import { Store, observable, computed, action } from "../src";
 import { Add } from "../src/json";
 
-/* no longer valid test with implicit nested stores...
-test("store should throw if given state and action with overlapping key", t => {
-  t.throws(() => {
-    const store = Store(
-      {
-        test: "test"
-      },
-      {
-        test() {}
-      }
-    );
-  });
-});
-*/
-
 test("Store should work with no parameters", t => {
   const store = Store();
   store.test = "Test";
@@ -57,14 +42,11 @@ test("Store should replace computed values transparently", t => {
   const store = Store({
     first: "Andy",
     last: "Johnson",
-    fullName: function() {
-      return `${this.first} ${this.last}`;
+    fullName(ctx) {
+      return `${ctx.first} ${ctx.last}`;
     }
   });
-  store.fullName = computed(function() {
-    return `${this.first} ${this.first}`;
-  }, store);
-
+  store.fullName = computed(ctx => `${ctx.first} ${ctx.first}`, store);
   t.is(store.fullName, "Andy Andy");
 });
 
@@ -77,8 +59,8 @@ test("Store should work with delete", t => {
   const store = Store({
     first: "Andy",
     last: "Johnson",
-    fullName() {
-      return `${this.first} ${this.last}`;
+    fullName(ctx) {
+      return `${ctx.first} ${ctx.last}`;
     },
     unob: "test"
   });
@@ -124,9 +106,7 @@ test("Store actions should be able to mutate state", t => {
       count: 0
     },
     {
-      increment: action(function() {
-        this.count++;
-      })
+      increment: action(ctx => ctx.count++)
     }
   );
   store.increment();
@@ -138,8 +118,8 @@ test("Store should only iterate observable, computed, and pojo non-function keys
     {
       a: "a",
       b: "b",
-      c: function() {
-        return `${this.a} + ${this.b}`;
+      c: ctx => {
+        return `${ctx.a} + ${ctx.b}`;
       }
     },
     {
@@ -162,12 +142,12 @@ test("Store should allow observable to be set to undefined", t => {
   t.is(store.a, undefined);
 });
 
-test("Store should automatically provide this context to computed values", t => {
+test("Store should automatically provide context to computed values", t => {
   const store = Store({
     a: "a",
     b: "b",
-    c: function() {
-      return `${this.a} + ${this.b}`;
+    c: ctx => {
+      return `${ctx.a} + ${ctx.b}`;
     }
   });
   t.is(store.c, "a + b");
@@ -178,13 +158,13 @@ test("Store in operator on pojo/observable/computed/store values only", t => {
     {
       a: "a",
       b: "b",
-      c: function() {
-        return `${this.a} + ${this.b}`;
+      c: ctx => {
+        return `${ctx.a} + ${ctx.b}`;
       }
     },
     {
-      d: action(() => {}),
-      e: () => {}
+      d: action(ctx => {}),
+      e: ctx => {}
     }
   );
   t.is("a" in store, true);
@@ -204,13 +184,13 @@ test("Store snapshots", t => {
     {
       a: "a",
       b: "b",
-      c: function() {
-        return `${this.a} + ${this.b}`;
+      c: ctx => {
+        return `${ctx.a} + ${ctx.b}`;
       }
     },
     {
-      d: action(() => {}),
-      e: () => {}
+      d: action(ctx => {}),
+      e: ctx => {}
     }
   );
   const snap = store._snapshot;
@@ -279,9 +259,7 @@ test("Store should only emit patches when actions have been reconciled", t => {
       counter: 0
     },
     {
-      inc: action(function() {
-        this.counter++;
-      })
+      inc: action(ctx => ctx.counter++)
     }
   );
   let count = 0;
@@ -289,7 +267,7 @@ test("Store should only emit patches when actions have been reconciled", t => {
     count++;
   };
   store._register(fn);
-  const ten = action(() => {
+  const ten = action(ctx => {
     store.inc();
     store.inc();
     store.inc();
@@ -309,11 +287,9 @@ test("Store should support implicit nested stores", t => {
     },
     {
       nested: {
-        change: action(function(val) {
-          this.test = val;
-        }),
-        change2(val) {
-          this.test = val;
+        change: action((ctx, val) => (ctx.test = val)),
+        change2(ctx, val) {
+          ctx.test = val;
         }
       }
     }

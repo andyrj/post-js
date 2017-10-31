@@ -285,23 +285,27 @@ export function Store(state = {}, actions = {}, parent) {
   });
   const initLocalKeys = Object.keys(local);
   Object.keys(actions).forEach(key => {
-    const a = actions[key];
+    let a = actions[key];
     const t = a != null ? a._type : undefined;
     if (initLocalKeys.indexOf(key) === -1) {
       if (t !== ACTION) {
-        a.bind(proxy);
+        proxy[key] = () => {
+          const args = [proxy, ...arguments];
+          a.apply(undefined, args); // wrap async actions providing context to first parameter...
+        };
+      } else {
+        proxy[key] = a;
       }
-      proxy[key] = a;
     }
   });
-  proxy._restore = action(snap => {
+  proxy._restore = action((ctx, snap) => {
     const prevKeys = Object.keys(proxy);
     for (let key in snap) {
       const t = local[key]._type;
       if (t === STORE && typeof snap[key] === "object" && snap[key] !== null) {
-        proxy[key]._restore(snap[key]);
+        ctx[key]._restore(snap[key]);
       } else {
-        proxy[key] = snap[key];
+        ctx[key] = snap[key];
       }
       const prevIndex = prevKeys.indexOf(key);
       if (prevIndex > -1) {
@@ -314,25 +318,23 @@ export function Store(state = {}, actions = {}, parent) {
       const key = prevKeys[i];
       const v = local[key];
       const t = v._type;
-      if (nonIterableKeys.indexOf(key) === -1 && (!t || t <= STORE )) {
-        delete proxy[key];
+      if (nonIterableKeys.indexOf(key) === -1 && (!t || t <= STORE)) {
+        delete ctx[key];
       }
     }
-  });
-  proxy._register = function(handler) {
+  }, proxy);
+  proxy._register = handler => {
     if (listeners.indexOf(handler) === -1) {
       listeners.push(handler);
     }
   };
-  proxy._unregister = function(handler) {
+  proxy._unregister = handler => {
     const index = listeners.indexOf(handler);
     if (index > -1) {
       listeners.splice(index, 1);
     }
   };
-  proxy._patch = function(patches) {
-    apply(proxy, patches);
-  };
+  proxy._patch = patches => apply(proxy, patches);
   proxy._parent = observable(parent);
   proxy._type = STORE;
   let lastSnap;
@@ -401,7 +403,8 @@ function conditionalDec(condition, count) {
 export function action(fn, context) {
   const func = function() {
     actions++;
-    fn.apply(context, arguments);
+    const args = [context, ...arguments];
+    fn.apply(undefined, args);
     if (actions === 1) {
       reconciling = true;
       while (
@@ -524,7 +527,7 @@ export function computed(thunk, context) {
   let init = true;
   // let delayedReaction = null;
   function reaction() {
-    const result = thunk.call(context);
+    const result = thunk(context);
     current(result);
   }
   // commented out delayed reaction, explore this optimization later...

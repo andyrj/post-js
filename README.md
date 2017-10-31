@@ -28,19 +28,20 @@ const store = Store(
     first: "Andy",
     last: "Johnson",
     list: [1,2,3,4,5], // array mutable methods are wrapped via proxy to maintain observability...
-    fullName() { // methods passed to state are computed values
-      return `${this.first} ${this.last}`;
+    fullName(ctx) { // methods passed to state are computed values
+      return `${ctx.first} ${ctx.last}`;
     },
-    fullCount() {
-      return `${this.fullName}: ${this.counter}`;
+    fullCount(ctx) {
+      return `${ctx.fullName}: ${ctx.counter}`;
     }
   },
   { // actions: second param to store is the actions object, all keys will be either 
-    //functions (allowing for async) or actions, they will all be bind(store), or action.context(store) automatically...
-    updateData: action(function(firstName, lastName, count) {
-      this.counter = count;
-      this.first = firstName;
-      this.last = lastName;
+    // functions (allowing for async) or actions, actions will have ctx supplied, so
+    // when using an action that first parameter will be removed from your call
+    updateData: action((ctx, firstName, lastName, count) => {
+      ctx.counter = count;
+      ctx.first = firstName;
+      ctx.last = lastName;
     })
   }
 );
@@ -48,12 +49,12 @@ const store = Store(
 // transparently adds and removes values to the proxied observable store...
 store.test = "123"; // default creates an observable value
 store.test2 = unobserved("456"); // escape hatch for unobserved values
-store.updateTest2 = action(function(val) { this.test2 = val; });
-store.asyncUpdate = () => {
+store.updateTest2 = action((ctx, val) => { ctx.test2 = val; });
+store.asyncUpdate = ctx => {
   // you can do whatever async code you like in a normal function
   // when you are ready to update your store's data simply call a sync action
   setTimeout(() => {
-    this.updateTest2("pretend I fetched this from a DB/http req");
+    ctx.updateTest2("pretend I fetched this from a DB/http req");
   }, 3000);
 };
 

@@ -123,13 +123,13 @@ test("disposed observables should flush observers", t => {
 test("actions should batch observable updates", t => {
   const t1 = observable("Test1");
   const t2 = observable("Test2");
-  const comp = computed(() => {
+  const comp = computed(ctx => {
     return `${t1()} ${t2()}`;
   });
   t.is(t1(), "Test1");
   t.is(t2(), "Test2");
   t.is(comp(), "Test1 Test2");
-  const act = action((one, two) => {
+  const act = action((ctx, one, two) => {
     t1(one);
     t2(two);
   });
@@ -156,11 +156,11 @@ test("nested actions should only resolve after all actions finish", t => {
   const comp = computed(() => {
     return `${t1()} ${t2()}`;
   });
-  const act2 = action(() => {
+  const act2 = action(ctx => {
     t1("test-1");
     t2("test-2");
   });
-  const act1 = action((one, two) => {
+  const act1 = action((ctx, one, two) => {
     t1(one);
     t2(two);
     act2();
@@ -184,10 +184,10 @@ test("computeds that depend on other computed values should not output stale or 
   const count = observable(0);
   const first = observable("Andy");
   const last = observable("Johnson");
-  const fullName = computed(() => {
+  const fullName = computed(ctx => {
     return `${first()} ${last()}`;
   });
-  const fullCount = computed(() => {
+  const fullCount = computed(ctx => {
     return `${fullName()}: ${count()}`;
   });
   t.is(count(), 0);
@@ -207,7 +207,7 @@ test("computeds that depend on other computed values should not output stale or 
   });
   t.is(a, 1);
   t.is(b, 1);
-  const act = action(() => {
+  const act = action(ctx => {
     count(1);
     first("John");
     last("Doe");
@@ -253,7 +253,7 @@ test("observable array should return proxy that notifies observers on set", t =>
 
 test("observable array should trigger computed as expected", t => {
   const arr = observable([]);
-  const comp = computed(() => {
+  const comp = computed(ctx => {
     return arr().reduce((acc, val) => {
       return acc + val;
     }, 0);
@@ -289,7 +289,7 @@ test("observable array should notify observers on mutator function execution", t
 
 test("updating an observable array should work as epxected", t => {
   const arr = observable([]);
-  const reset = action(() => {
+  const reset = action(ctx => {
     arr([]);
   });
   t.deepEqual(arr(), []);
@@ -329,9 +329,9 @@ test("circular dependencies should short circuit after MAX_DEPTH iterations", t 
   console.warn = () => warns++;
   const count1 = observable(0);
   const count2 = observable(0);
-  const inc1 = action(() => count1(count1() + 1));
-  const inc2 = action(() => count2(count2() + 1));
-  const act = action(() => {
+  const inc1 = action(ctx => count1(count1() + 1));
+  const inc2 = action(ctx => count2(count2() + 1));
+  const act = action(ctx => {
     inc1();
     inc2();
   });
@@ -340,12 +340,12 @@ test("circular dependencies should short circuit after MAX_DEPTH iterations", t 
     inc2();
     return newVal;
   });
-  const comp2 = computed(() => {
+  const comp2 = computed(ctx => {
     const newVal = `comp2: ${count2()}`;
     inc1();
     return newVal;
   });
-  const comp3 = computed(() => {
+  const comp3 = computed(ctx => {
     act();
     return `${comp1()} : ${comp2()}`;
   });
