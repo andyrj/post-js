@@ -221,7 +221,7 @@ export function Test(path, value) {
 }
 
 export function Ref(doc, path) {
-  return function() {
+  function fn() {
     const { parent, prop } = walkPath(doc, path);
     if (arguments.length > 0) {
       parent[prop] = arguments[0];
@@ -229,4 +229,19 @@ export function Ref(doc, path) {
       return parent[prop];
     }
   }
+  fn._parent = function() {
+    if (arguments.length > 0) {
+      doc = arguments[0];
+    } else {
+      return doc;
+    }
+  };
+  fn._path = function() {
+    if (arguments.length > 0) {
+      path = arguments[0];
+    } else {
+      return path;
+    }
+  };
+  return fn;
 }
