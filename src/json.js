@@ -1,3 +1,5 @@
+import { REF } from "./constants";
+
 function add(doc, path, value) {
   const { parent, prop } = walkPath(doc, path);
   if (Array.isArray(parent)) {
@@ -229,19 +231,20 @@ export function Ref(doc, path) {
       return parent[prop];
     }
   }
-  fn._parent = function() {
+  fn.parent = function() {
     if (arguments.length > 0) {
       doc = arguments[0];
     } else {
       return doc;
     }
   };
-  fn._path = function() {
+  fn.path = function() {
     if (arguments.length > 0) {
       path = arguments[0];
     } else {
       return path;
     }
   };
+  fn.type = REF;
   return fn;
 }

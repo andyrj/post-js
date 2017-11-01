@@ -85,10 +85,10 @@ const fullCountDisposer = autorun(() => {
 
 // you can register to receive json patches
 const fn = patches => console.log(patches);
-store._register(fn);
+store.register(fn);
 store.test = "test123"; // will console.log() -> [{ op: "add", path: "/test", value: "test123" }]
 // you can also unregister from the patch stream...
-store._unregister(fn);
+store.unregister(fn);
 
 // actions are "atomic" in in that the changes are batched like actions in mobx...
 // so autorun is de-glitched and guaranteed to not be stale...
@@ -98,16 +98,16 @@ store.updateData("Jon", "Doe", 10);
 // the snapshot will include all observables/unobserveds for store and all of nested stores
 // non-serializable portions of the store such as functions and computed values
 // are not included in the snapshot...
-console.log(store._snapshot);
+console.log(store.snapshot);
 
 // will log all keys excluding actions and functions...
-for (let v in store._snapshot) {
+for (let v in store.snapshot) {
   console.log(`${v}: ${v in store}`);
 }
 
 fullNameDisposer(); // autoruns can be disposed to remove observable references and prevent further execution
 fullCountDisposer();
-store._dispose()); // disposes of observables and delete's all keys for this store and all nested stores...
+store.dispose(); // disposes of observables and delete's all keys for this store and all nested stores...
 
 // you can also use the observable primitives directly without the pojo proxy wrapper
 const first = observable("Andy");

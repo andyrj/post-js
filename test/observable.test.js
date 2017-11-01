@@ -6,6 +6,7 @@ import {
   autorun,
   action
 } from "../src/observable";
+import { OBSERVABLE, MAX_DEPTH } from "../src/constants";
 
 test("observables should return value when called with no argument", t => {
   const test = observable("test");
@@ -228,7 +229,7 @@ test("observable array should return proxy that notifies observers on set", t =>
     sum = arr().reduce((acc, val) => {
       if (val == null) {
         return acc;
-      } else if (val._type === 1) {
+      } else if (val.type === OBSERVABLE) {
         return acc + val();
       }
       return acc + val;
@@ -275,7 +276,7 @@ test("observable array should notify observers on mutator function execution", t
     sum = arr().reduce((acc, val) => {
       if (val == null) {
         return acc;
-      } else if (val._type === 0) {
+      } else if (val.type === OBSERVABLE) {
         return acc + val();
       }
       return acc + val;
@@ -308,7 +309,7 @@ test("observable array of observables should trigger on children and container u
     sum = arr().reduce((acc, val) => {
       if (val == null) {
         return acc;
-      } else if (val._type === 1) {
+      } else if (val.type === OBSERVABLE) {
         return acc + val();
       }
       return acc + val;

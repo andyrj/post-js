@@ -1,6 +1,7 @@
 import test from "ava";
 import { Store, observable, computed, action } from "../src";
 import { Add } from "../src/json";
+import { STORE } from "../src/constants";
 
 test("Store should work with no parameters", t => {
   const store = Store();
@@ -173,10 +174,10 @@ test("Store in operator on pojo/observable/computed/store values only", t => {
   t.is("d" in store, false);
   t.is("e" in store, false);
   t.is("f" in store, false);
-  t.is("_type" in store, false);
-  t.is("_snapshot" in store, false);
-  t.is(store._type, 2);
-  t.is(typeof store._snapshot, "object");
+  t.is("type" in store, false);
+  t.is("snapshot" in store, false);
+  t.is(store.type, STORE);
+  t.is(typeof store.snapshot, "object");
 });
 
 test("Store snapshots", t => {
@@ -193,10 +194,10 @@ test("Store snapshots", t => {
       e: ctx => {}
     }
   );
-  const snap = store._snapshot;
+  const snap = store.snapshot;
   t.deepEqual(snap, { a: "a", b: "b" });
-  store._restore({ a: "b", b: "a" });
-  const snap2 = store._snapshot;
+  store.restore({ a: "b", b: "a" });
+  const snap2 = store.snapshot;
   t.deepEqual(snap2, { a: "b", b: "a" });
 });
 
@@ -208,11 +209,11 @@ test("Store should allow register and unregister for patch emissions", t => {
   const patchHandler = patches => {
     count++;
   };
-  store._register(patchHandler);
-  store._register(patchHandler);
+  store.register(patchHandler);
+  store.register(patchHandler);
   store.test = "test123";
-  store._unregister(patchHandler);
-  store._unregister(patchHandler);
+  store.unregister(patchHandler);
+  store.unregister(patchHandler);
   t.is(count, 1);
 });
 
@@ -222,23 +223,24 @@ test("Store should allow nested stores", t => {
       test: "stuff"
     }
   });
-  t.deepEqual(store._snapshot, { nested: { test: "stuff" } });
-  store._restore({ nested: { test: "test" } });
-  t.deepEqual(store._snapshot, { nested: { test: "test" } });
+  t.deepEqual(store.snapshot, { nested: { test: "stuff" } });
+  store.restore({ nested: { test: "test" } });
+  t.deepEqual(store.snapshot, { nested: { test: "test" } });
 });
 
 test("Store should apply patches", t => {
   const store = Store({ test: "test" });
   const patches = [Add(["test"], "test123")];
-  store._patch(patches);
+  store.patch(patches);
   t.is(store.test, "test123");
 });
 
-test("Cover case of removing nonIterableKey from Store, NOTE: DO NOT DO THIS", t => {
+test("Store should throw if attempting to delete nonIterableKey from Store", t => {
   const store = Store();
-  t.is(store._type, 2);
-  delete store._type;
-  t.is(store._type, undefined);
+  t.is(store.type, STORE);
+  t.throws(() => {
+    delete store.type;
+  });
 });
 
 test("Store should allow nested Stores to be deleted", t => {
@@ -266,7 +268,7 @@ test("Store should only emit patches when actions have been reconciled", t => {
   const fn = patches => {
     count++;
   };
-  store._register(fn);
+  store.register(fn);
   const ten = action(ctx => {
     store.inc();
     store.inc();

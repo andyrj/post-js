@@ -1,14 +1,17 @@
 import { apply, Add, Remove } from "./json";
+import {
+  MAX_DEPTH,
+  UNOBSERVED,
+  OBSERVABLE,
+  STORE,
+  COMPUTED,
+  ACTION,
+  AUTORUN,
+  REF
+} from "./constants";
 
 const stack = [];
 let actions = 0;
-const MAX_DEPTH = 300;
-const UNOBSERVED = 0;
-const OBSERVABLE = 1;
-const STORE = 2;
-const COMPUTED = 3;
-const ACTION = 4;
-const AUTORUN = 5;
 let depth = MAX_DEPTH;
 const transaction = { o: [], c: [], a: [] };
 let reconciling = false;
@@ -27,7 +30,7 @@ export function unobserved(val) {
   const fn = function() {
     return val;
   }
-  fn._type = UNOBSERVED;
+  fn.type = UNOBSERVED;
   return fn;
 }
 
@@ -36,7 +39,7 @@ function notifyObservers(obs) {
     if (actions === 0) {
       o.run();
     } else {
-      if (o._type === COMPUTED) {
+      if (o.type === COMPUTED) {
         const index = transaction.c.indexOf(o);
         if (index > -1) {
           transaction.c.splice(index, 1);
@@ -69,8 +72,8 @@ function extendArray(val, observers) {
     set(target, name, value) {
       let val = value;
       if (name in target) {
-        if (target[name]._type === OBSERVABLE) {
-          if (value != null && value._type === OBSERVABLE) {
+        if (target[name].type === OBSERVABLE) {
+          if (value != null && value.type === OBSERVABLE) {
             val = value();
             target[name](value());
           } else {
@@ -116,13 +119,14 @@ function emitPatches(listeners, queue) {
 }
 
 const nonIterableKeys = [
-  "_snapshot",
-  "_restore",
-  "_register",
-  "_unregister",
-  "_patch",
-  "_parent",
-  "_type"
+  "snapshot",
+  "restore",
+  "register",
+  "unregister",
+  "patch",
+  "parent",
+  "type",
+  "dispose"
 ];
 
 /**
@@ -144,11 +148,12 @@ export function Store(state = {}, actions = {}, parent) {
   const observed = observable([]);
   const unobserved = observable([]);
   const stores = observable([]);
+  let storeInit = true;
   function addKey(name, value) {
     if (nonIterableKeys.indexOf(name) > -1) {
       return;
     }
-    const type = value != null ? value._type : undefined;
+    const type = value != null ? value.type : undefined;
     if (!type && typeof value !== "function") {
       unobserved().push(name);
     } else if (type === STORE) {
@@ -182,7 +187,7 @@ export function Store(state = {}, actions = {}, parent) {
       if (name in target) {
         if (
           target[name] != null &&
-          (target[name]._type === OBSERVABLE || target[name]._type === COMPUTED)
+          (target[name].type === OBSERVABLE || target[name].type === COMPUTED)
         ) {
           return target[name]();
         }
@@ -192,16 +197,19 @@ export function Store(state = {}, actions = {}, parent) {
       }
     },
     set(target, name, value) {
-      const v = value != null ? value._type : undefined;
+      const v = value != null ? value.type : undefined;
       if (v === COMPUTED || v === ACTION) {
         value.context(proxy);
       }
       const tar = target[name];
-      const t = tar != null ? tar._type : undefined;
+      const t = tar != null ? tar.type : undefined;
+      if (nonIterableKeys.indexOf(name) > -1 && !storeInit) {
+        return false;
+      }
       if (name in target) {
         if (v === OBSERVABLE && t === OBSERVABLE) {
           value = value(); // unwrap nested observables to avoid observable(observable("stuff"))
-        } 
+        }
         if (t === OBSERVABLE) {
           target[name](value);
         } else {
@@ -231,7 +239,7 @@ export function Store(state = {}, actions = {}, parent) {
       return true;
     },
     deleteProperty(target, name) {
-      if (name in target) {
+      if (name in target && nonIterableKeys.indexOf(name) === -1) {
         const t = target[name];
         if (t.dispose != null) {
           t.dispose();
@@ -247,7 +255,7 @@ export function Store(state = {}, actions = {}, parent) {
       if (name in target && nonIterableKeys.indexOf(name) === -1) {
         const tar = target[name];
         const isFunc = typeof tar === "function";
-        const type = tar != null ? tar._type : undefined;
+        const type = tar != null ? tar.type : undefined;
         if (isFunc) {
           if (type < ACTION) {
             return true;
@@ -264,7 +272,7 @@ export function Store(state = {}, actions = {}, parent) {
     ownKeys(target) {
       return Reflect.ownKeys(target).filter(k => {
         const tar = target[k];
-        const type = tar != null ? tar._type : undefined;
+        const type = tar != null ? tar.type : undefined;
         return (!type && typeof target[k] !== "function") || type < ACTION;
       });
     }
@@ -272,7 +280,7 @@ export function Store(state = {}, actions = {}, parent) {
   proxy = new Proxy(local, storeHandler);
   Object.keys(state).forEach(key => {
     const s = state[key];
-    const t = s != null ? s._type : undefined;
+    const t = s != null ? s.type : undefined;
     if (typeof s !== "function") {
       if (t !== STORE && typeof s === "object" && s !== null) {
         proxy[key] = Store(s, actions[key], proxy);
@@ -286,7 +294,7 @@ export function Store(state = {}, actions = {}, parent) {
   const initLocalKeys = Object.keys(local);
   Object.keys(actions).forEach(key => {
     let a = actions[key];
-    const t = a != null ? a._type : undefined;
+    const t = a != null ? a.type : undefined;
     if (initLocalKeys.indexOf(key) === -1) {
       if (t !== ACTION) {
         proxy[key] = function() {
@@ -297,12 +305,21 @@ export function Store(state = {}, actions = {}, parent) {
       }
     }
   });
-  proxy._restore = action((ctx, snap) => {
+  proxy.dispose = function() {
+    const keys = Object.keys(local);
+    keys.forEach(key => {
+      if (local[key] && typeof local[key].dispose === "function") {
+        local[key].dispose();
+      }
+      delete local[key];
+    });
+  };
+  proxy.restore = action((ctx, snap) => {
     const prevKeys = Object.keys(proxy);
     for (let key in snap) {
-      const t = local[key]._type;
+      const t = local[key].type;
       if (t === STORE && typeof snap[key] === "object" && snap[key] !== null) {
-        ctx[key]._restore(snap[key]);
+        ctx[key].restore(snap[key]);
       } else {
         ctx[key] = snap[key];
       }
@@ -316,26 +333,26 @@ export function Store(state = {}, actions = {}, parent) {
     for (; i < prevLen; i++) {
       const key = prevKeys[i];
       const v = local[key];
-      const t = v._type;
+      const t = v.type;
       if (nonIterableKeys.indexOf(key) === -1 && (!t || t <= STORE)) {
         delete ctx[key];
       }
     }
   }, proxy);
-  proxy._register = handler => {
+  proxy.register = handler => {
     if (listeners.indexOf(handler) === -1) {
       listeners.push(handler);
     }
   };
-  proxy._unregister = handler => {
+  proxy.unregister = handler => {
     const index = listeners.indexOf(handler);
     if (index > -1) {
       listeners.splice(index, 1);
     }
   };
-  proxy._patch = patches => apply(proxy, patches);
-  proxy._parent = observable(parent);
-  proxy._type = STORE;
+  proxy.patch = patches => apply(proxy, patches);
+  proxy.parent = observable(parent);
+  proxy.type = STORE;
   let lastSnap;
   function diffSnaps(prev, next) {
     const prevKeys = Object.keys(prev);
@@ -361,13 +378,13 @@ export function Store(state = {}, actions = {}, parent) {
       emitPatches(listeners, patchQueue);
     }
   }
-  proxy._snapshot = observable({});
+  proxy.snapshot = observable({});
   const snapDisposer = autorun(() => {
     let init = false;
     if (lastSnap === undefined) {
       init = true;
     }
-    lastSnap = proxy._snapshot;
+    lastSnap = proxy.snapshot;
     const result = {};
     observed().forEach(key => {
       result[key] = proxy[key];
@@ -376,13 +393,14 @@ export function Store(state = {}, actions = {}, parent) {
       result[key] = proxy[key];
     });
     stores().forEach(key => {
-      result[key] = proxy[key]._snapshot;
+      result[key] = proxy[key].snapshot;
     });
     if (!init) {
       diffSnaps(lastSnap, result);
     }
-    proxy._snapshot = result;
+    local.snapshot(result);
   });
+  storeInit = false;
   return proxy;
 }
 
@@ -433,7 +451,7 @@ export function action(fn, context) {
     }
     actions--;
   };
-  func._type = ACTION;
+  func.type = ACTION;
   func.context = function(newContext) {
     context = newContext;
   };
@@ -484,7 +502,7 @@ export function observable(value) {
       notifyObservers(observers);
     }
   };
-  data._type = OBSERVABLE;
+  data.type = OBSERVABLE;
   data.sub = function(observer) {
     if (observers.indexOf(observer) === -1) {
       observers.push(observer);
@@ -553,7 +571,7 @@ export function computed(thunk, context) {
     // }
     return current();
   }
-  wrapper._type = COMPUTED;
+  wrapper.type = COMPUTED;
   wrapper.dispose = function() {
     current.dispose();
     dispose();
@@ -601,7 +619,7 @@ export function autorun(thunk, computed = false) {
         stack.pop(this);
       }
     },
-    _type: computed ? COMPUTED : AUTORUN
+    type: computed ? COMPUTED : AUTORUN
   };
   reaction.run();
   return function() {
