@@ -48,7 +48,7 @@ test("autorun should execute when observables it accesses change", t => {
   autorun(() => {
     let val = test();
     count++;
-  })
+  });
   t.is(count, 1);
   test("123");
   t.is(count, 2);

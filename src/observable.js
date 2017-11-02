@@ -205,7 +205,7 @@ export function Store(state = {}, actions = {}, parent) {
         return false;
       }
       if (name in target) {
-        if (valueType === OBSERVABLE && t === OBSERVABLE) {
+        if (valueType === OBSERVABLE && type === OBSERVABLE) {
           value = value(); // unwrap nested observables to avoid observable(observable("stuff"))
         }
         if (type === OBSERVABLE) {
