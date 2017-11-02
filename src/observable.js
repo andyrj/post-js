@@ -26,31 +26,31 @@ const arrayMutators = [
   "reverse"
 ];
 
-export function unobserved(val) {
-  const fn = function() {
-    return val;
+export function unobserved(value) {
+  const wrapper = function() {
+    return value;
   };
-  fn.type = UNOBSERVED;
-  return fn;
+  wrapper.type = UNOBSERVED;
+  return wrapper;
 }
 
-function notifyObservers(obs) {
-  obs.forEach(o => {
+function notifyObservers(observers) {
+  observers.forEach(observer => {
     if (actions === 0) {
-      o.run();
+      observer.run();
     } else {
-      if (o.type === COMPUTED) {
-        const index = transaction.c.indexOf(o);
+      if (observer.type === COMPUTED) {
+        const index = transaction.c.indexOf(observer);
         if (index > -1) {
           transaction.c.splice(index, 1);
         }
-        transaction.c.push(o);
+        transaction.c.push(observer);
       } else {
-        const index = transaction.a.indexOf(o);
+        const index = transaction.a.indexOf(observer);
         if (index > -1) {
           transaction.a.splice(index, 1);
         }
-        transaction.a.push(o);
+        transaction.a.push(observer);
       }
     }
   });
@@ -61,20 +61,18 @@ function extendArray(val, observers) {
     get(target, name) {
       if (arrayMutators.indexOf(name) > -1) {
         return function() {
-          const res = Array.prototype[name].apply(target, arguments);
+          const result = Array.prototype[name].apply(target, arguments);
           notifyObservers(observers);
-          return res;
+          return result;
         };
       } else {
         return target[name];
       }
     },
     set(target, name, value) {
-      let val = value;
       if (name in target) {
         if (target[name].type === OBSERVABLE) {
           if (value != null && value.type === OBSERVABLE) {
-            val = value();
             target[name](value());
           } else {
             target[name](value);
@@ -99,16 +97,16 @@ function extendArray(val, observers) {
 let actionPatchEmitter;
 function emitPatches(listeners, queue) {
   if (actions === 0) {
-    listeners.forEach(l => {
-      l(queue);
+    listeners.forEach(listener => {
+      listener(queue);
     });
     while (queue.length > 0) {
       queue.pop();
     }
   } else {
     actionPatchEmitter = function() {
-      listeners.forEach(l => {
-        l(queue);
+      listeners.forEach(listener => {
+        listener(queue);
       });
       while (queue.length > 0) {
         queue.pop();
@@ -197,24 +195,24 @@ export function Store(state = {}, actions = {}, parent) {
       }
     },
     set(target, name, value) {
-      const v = value != null ? value.type : undefined;
-      if (v === COMPUTED || v === ACTION) {
+      const valueType = value != null ? value.type : undefined;
+      if (valueType === COMPUTED || valueType === ACTION) {
         value.context(proxy);
       }
-      const tar = target[name];
-      const t = tar != null ? tar.type : undefined;
+      const entry = target[name];
+      const type = entry != null ? entry.type : undefined;
       if (nonIterableKeys.indexOf(name) > -1 && !storeInit) {
         return false;
       }
       if (name in target) {
-        if (v === OBSERVABLE && t === OBSERVABLE) {
+        if (valueType === OBSERVABLE && t === OBSERVABLE) {
           value = value(); // unwrap nested observables to avoid observable(observable("stuff"))
         }
-        if (t === OBSERVABLE) {
+        if (type === OBSERVABLE) {
           target[name](value);
         } else {
-          if (t && typeof tar.dispose === "function") {
-            tar.dispose(); // clean up if setting existing key that is COMPUTED or STORE
+          if (type && typeof entry.dispose === "function") {
+            entry.dispose(); // clean up if setting existing key that is COMPUTED or STORE
             removeKey(name);
           }
           target[name] = value;
@@ -222,15 +220,15 @@ export function Store(state = {}, actions = {}, parent) {
       } else {
         if (
           typeof value !== "function" &&
-          v === undefined &&
-          v !== UNOBSERVED
+          valueType === undefined &&
+          valueType !== UNOBSERVED
         ) {
           if (typeof value === "object" && value !== null) {
             value = Store(value, proxy); // by default upgrade objects to nested stores...
           } else {
             value = observable(value); // by default upgrade values to observables
           }
-        } else if (v === UNOBSERVED) {
+        } else if (valueType === UNOBSERVED) {
           value = value(); // unwrap unobserved values...
         }
         addKey(name, value);
@@ -240,9 +238,9 @@ export function Store(state = {}, actions = {}, parent) {
     },
     deleteProperty(target, name) {
       if (name in target && nonIterableKeys.indexOf(name) === -1) {
-        const t = target[name];
-        if (t.dispose != null) {
-          t.dispose();
+        const value = target[name];
+        if (value.dispose != null) {
+          value.dispose();
         }
         removeKey(name);
         delete target[name];
@@ -253,9 +251,9 @@ export function Store(state = {}, actions = {}, parent) {
     },
     has(target, name) {
       if (name in target && nonIterableKeys.indexOf(name) === -1) {
-        const tar = target[name];
-        const isFunc = typeof tar === "function";
-        const type = tar != null ? tar.type : undefined;
+        const value = target[name];
+        const isFunc = typeof value === "function";
+        const type = value != null ? value.type : undefined;
         if (isFunc) {
           if (type < ACTION) {
             return true;
@@ -270,38 +268,38 @@ export function Store(state = {}, actions = {}, parent) {
       }
     },
     ownKeys(target) {
-      return Reflect.ownKeys(target).filter(k => {
-        const tar = target[k];
-        const type = tar != null ? tar.type : undefined;
-        return (!type && typeof target[k] !== "function") || type < ACTION;
+      return Reflect.ownKeys(target).filter(key => {
+        const value = target[key];
+        const type = value != null ? value.type : undefined;
+        return (!type && typeof value !== "function") || type < ACTION;
       });
     }
   };
   proxy = new Proxy(local, storeHandler);
   Object.keys(state).forEach(key => {
-    const s = state[key];
-    const t = s != null ? s.type : undefined;
-    if (typeof s !== "function") {
-      if (t !== STORE && typeof s === "object" && s !== null) {
-        proxy[key] = Store(s, actions[key], proxy);
+    const value = state[key];
+    const type = value != null ? value.type : undefined;
+    if (typeof value !== "function") {
+      if (type !== STORE && typeof value === "object" && value !== null) {
+        proxy[key] = Store(value, actions[key], proxy);
       } else {
-        proxy[key] = observable(s);
+        proxy[key] = observable(value);
       }
     } else {
-      proxy[key] = computed(s, proxy);
+      proxy[key] = computed(value, proxy);
     }
   });
   const initLocalKeys = Object.keys(local);
   Object.keys(actions).forEach(key => {
-    let a = actions[key];
-    const t = a != null ? a.type : undefined;
+    let action = actions[key];
+    const t = action != null ? action.type : undefined;
     if (initLocalKeys.indexOf(key) === -1) {
       if (t !== ACTION) {
         proxy[key] = function() {
-          a(proxy, ...arguments); // wrap async actions providing context to first parameter...
+          action(proxy, ...arguments); // wrap async actions providing context to first parameter...
         };
       } else {
-        proxy[key] = a;
+        proxy[key] = action;
       }
     }
   });
@@ -317,8 +315,12 @@ export function Store(state = {}, actions = {}, parent) {
   proxy.restore = action((ctx, snap) => {
     const prevKeys = Object.keys(proxy);
     for (let key in snap) {
-      const t = local[key].type;
-      if (t === STORE && typeof snap[key] === "object" && snap[key] !== null) {
+      const type = local[key].type;
+      if (
+        type === STORE &&
+        typeof snap[key] === "object" &&
+        snap[key] !== null
+      ) {
         ctx[key].restore(snap[key]);
       } else {
         ctx[key] = snap[key];
@@ -332,9 +334,9 @@ export function Store(state = {}, actions = {}, parent) {
     const prevLen = prevKeys.length;
     for (; i < prevLen; i++) {
       const key = prevKeys[i];
-      const v = local[key];
-      const t = v.type;
-      if (nonIterableKeys.indexOf(key) === -1 && (!t || t <= STORE)) {
+      const value = local[key];
+      const type = value.type;
+      if (nonIterableKeys.indexOf(key) === -1 && (!type || type <= STORE)) {
         delete ctx[key];
       }
     }
@@ -407,6 +409,7 @@ export function Store(state = {}, actions = {}, parent) {
 function conditionalDec(condition, count) {
   return condition ? --count : count;
 }
+
 /**
  * action - Batches changes to observables and computed values so that 
  * they are computed without glitches and without triggering autoruns 
@@ -605,17 +608,17 @@ export function autorun(thunk, computed = false) {
   const observing = [];
   let disposed = false;
   const reaction = {
-    addDependency(obs) {
-      if (observing.indexOf(obs) === -1) {
-        observing.push(obs);
+    addDependency(observer) {
+      if (observing.indexOf(observer) === -1) {
+        observing.push(observer);
       }
     },
     run() {
       if (!disposed) {
         stack.push(this);
-        observing.splice(0).forEach(o => o.unsubscribe(this));
+        observing.splice(0).forEach(observer => observer.unsubscribe(this));
         thunk();
-        observing.forEach(o => o.subscribe(this));
+        observing.forEach(observer => observer.subscribe(this));
         stack.pop(this);
       }
     },
@@ -624,7 +627,7 @@ export function autorun(thunk, computed = false) {
   reaction.run();
   return function() {
     disposed = true;
-    observing.splice(0).forEach(o => o.unsubscribe(this));
+    observing.splice(0).forEach(observer => observer.unsubscribe(this));
     flush(observing);
   };
 }
