@@ -29,7 +29,7 @@ const arrayMutators = [
 export function unobserved(val) {
   const fn = function() {
     return val;
-  }
+  };
   fn.type = UNOBSERVED;
   return fn;
 }
