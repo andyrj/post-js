@@ -503,12 +503,12 @@ export function observable(value) {
     }
   };
   data.type = OBSERVABLE;
-  data.sub = function(observer) {
+  data.subscribe = function(observer) {
     if (observers.indexOf(observer) === -1) {
       observers.push(observer);
     }
   };
-  data.unsub = function(observer) {
+  data.unsubscribe = function(observer) {
     const index = observers.indexOf(observer);
     if (index > -1) {
       observers.splice(index, 1);
@@ -613,9 +613,9 @@ export function autorun(thunk, computed = false) {
     run() {
       if (!disposed) {
         stack.push(this);
-        observing.splice(0).forEach(o => o.unsub(this));
+        observing.splice(0).forEach(o => o.unsubscribe(this));
         thunk();
-        observing.forEach(o => o.sub(this));
+        observing.forEach(o => o.subscribe(this));
         stack.pop(this);
       }
     },
@@ -624,7 +624,7 @@ export function autorun(thunk, computed = false) {
   reaction.run();
   return function() {
     disposed = true;
-    observing.splice(0).forEach(o => o.unsub(this));
+    observing.splice(0).forEach(o => o.unsubscribe(this));
     flush(observing);
   };
 }
