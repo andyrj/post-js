@@ -126,7 +126,7 @@ function walkPath(doc, arr) {
   while (clone.length > 0) {
     let entry = clone.shift();
     if (entry === "..") {
-      entry = "_parent"; // allow walking up the tree via _parent reference...
+      entry = "parent"; // allow walking up the tree via doc.parent reference...
     }
     if (parent == null) {
       parent = doc[entry];
