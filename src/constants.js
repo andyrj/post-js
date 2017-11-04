@@ -6,3 +6,4 @@ export const COMPUTED = 3;
 export const ACTION = 4;
 export const AUTORUN = 5;
 export const REF = 6;
+export const ARRAY = 7;

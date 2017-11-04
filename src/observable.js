@@ -7,7 +7,8 @@ import {
   COMPUTED,
   ACTION,
   AUTORUN,
-  REF
+  REF,
+  ARRAY
 } from "./constants";
 
 const stack = [];
@@ -15,6 +16,7 @@ let actions = 0;
 let depth = MAX_DEPTH;
 const transaction = { o: [], c: [], a: [] };
 let reconciling = false;
+const arrayPatches = {}; // LUT for observable array patch emission
 
 const arrayMutators = [
   "splice",
@@ -56,11 +58,16 @@ function notifyObservers(observers) {
   });
 }
 
+const arrayNonIterableKeys = ["type", "patchSymbol"];
+
 function extendArray(val, observers) {
+  let proxy;
+  let init = true;
   const arrHandler = {
     get(target, name) {
       if (arrayMutators.indexOf(name) > -1) {
         return function() {
+          // TODO: push patches for each mutator function to arrayPatches[proxy.patchSymbol]
           const result = Array.prototype[name].apply(target, arguments);
           notifyObservers(observers);
           return result;
@@ -72,6 +79,7 @@ function extendArray(val, observers) {
     set(target, name, value) {
       if (name in target) {
         if (target[name].type === OBSERVABLE) {
+          // TODO: push add patch to arrayPatches[proxy.patchSymbol]
           if (value != null && value.type === OBSERVABLE) {
             target[name](value());
           } else {
@@ -81,7 +89,7 @@ function extendArray(val, observers) {
           target[name] = value;
         }
       } else {
-        if (isNaN(parseInt(name))) {
+        if (isNaN(parseInt(name)) && !init) {
           return false;
         } else {
           target[name] = value;
@@ -89,9 +97,31 @@ function extendArray(val, observers) {
       }
       notifyObservers(observers);
       return true;
+    },
+    deleteProperty(target, name) {
+      // prevent deletion of private keys, type and patchSymbol,
+      // removing them would break patch emission
+      if (name in target && arrayNonIterableKeys.indexOf(name) === -1) {
+        // TODO: push remove patch to arrayPatches[proxy.patchSymbol]
+        return delete target[name];
+      } else {
+        return false;
+      }
+    },
+    ownKeys(target) {
+      // prevent iterating type and patchSymbol, which are
+      // primarily private variables for use with Store...
+      return Reflect.ownKeys(target).filter(key => {
+        return arrayNonIterableKeys.indexOf(key) === -1;
+      });
     }
   };
-  return new Proxy(val, arrHandler);
+  proxy = new Proxy(val, arrHandler);
+  proxy.type = ARRAY;
+  proxy.patchSymbol = Symbol();
+  arrayPatches[proxy.patchSymbol] = []; // initialize LUT entry for this observable array
+  init = false;
+  return proxy;
 }
 
 let actionPatchEmitter;
@@ -360,11 +390,12 @@ export function Store(state = {}, actions = {}, parent) {
     const prevKeys = Object.keys(prev);
     const nextKeys = Object.keys(next);
     nextKeys.forEach(key => {
+      // TODO: rewrite this to account for new LUT array patch setup...
       if (stores().indexOf(key) === -1 && next[key] !== prev[key]) {
         if (typeof next[key] !== "object") {
           patchQueue.push(Add([key], next[key]));
         } else {
-          // TODO: handle case of unobserved objects in tree
+          // TODO: unobserved values will not emit patches for now...
         }
       }
       const prevIndex = prevKeys.indexOf(key);
