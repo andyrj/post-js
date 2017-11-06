@@ -108,11 +108,11 @@ function test(doc, path, value) {
 
 // RFC6901
 // helper to convert ["some", "json", "path"] to "/some/json/path"
-function arrToPointer(arr) {
+export function arrToPointer(arr) {
   return "/" + arr.join("/");
 }
 // helper to convert pointer to path array reverse of above...
-function pointerToArr(pointer) {
+export function pointerToArr(pointer) {
   return pointer.slice(1).split("/");
 }
 

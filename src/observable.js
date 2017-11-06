@@ -1,4 +1,4 @@
-import { apply, Add, Remove } from "./json";
+import { apply, Add, Remove, arrToPointer } from "./json";
 import {
   MAX_DEPTH,
   UNOBSERVED,
@@ -16,17 +16,6 @@ let actions = 0;
 let depth = MAX_DEPTH;
 const transaction = { o: [], c: [], a: [] };
 let reconciling = false;
-const arrayPatches = {}; // LUT for observable array patch emission
-
-const arrayMutators = [
-  "splice",
-  "push",
-  "unshift",
-  "pop",
-  "shift",
-  "copyWithin",
-  "reverse"
-];
 
 export function unobserved(value) {
   const wrapper = function() {
@@ -58,18 +47,53 @@ function notifyObservers(observers) {
   });
 }
 
+const arrayMutators = [
+  "splice",
+  "push",
+  "unshift",
+  "pop",
+  "shift",
+  "copyWithin",
+  "reverse"
+];
+
 const arrayNonIterableKeys = ["type", "patchSymbol"];
 
-function extendArray(val, observers) {
+function generateMutatorPatches(orig, curr, method, args) {
+  const result = [];
+  switch (method) {
+    case "push":
+      result.push(Add([orig.length - 1], args[0]));
+      break;
+    case "unshift":
+      result.push(Add([0], args[0]));
+      break;
+    case "pop":
+      result.push(Remove([orig.length - 1]));
+      break;
+    case "shift":
+      result.push(Remove([0]));
+      break;
+    case "copyWithin": // for now easiest/smallest way to handle these is replace array in patch
+    case "splice":
+    case "reverse":
+      result.push(Add([], curr));
+      break;
+  }
+  return result;
+}
+
+function extendArray(val, observers, pushPatches) {
   let proxy;
   let init = true;
   const arrHandler = {
     get(target, name) {
       if (arrayMutators.indexOf(name) > -1) {
         return function() {
-          // TODO: push patches for each mutator function to arrayPatches[proxy.patchSymbol]
+          const orig = target.slice(0);
           const result = Array.prototype[name].apply(target, arguments);
           notifyObservers(observers);
+          pushPatches(generateMutatorPatches(orig, target, name, arguments));
           return result;
         };
       } else {
@@ -79,12 +103,12 @@ function extendArray(val, observers) {
     set(target, name, value) {
       if (name in target) {
         if (target[name].type === OBSERVABLE) {
-          // TODO: push add patch to arrayPatches[proxy.patchSymbol]
+          let rawValue = value;
           if (value != null && value.type === OBSERVABLE) {
-            target[name](value());
-          } else {
-            target[name](value);
+            rawValue = value();
           }
+          pushPatches([Add([name], rawValue)]);
+          target[name](rawValue);
         } else {
           target[name] = value;
         }
@@ -92,6 +116,7 @@ function extendArray(val, observers) {
         if (isNaN(parseInt(name)) && !init) {
           return false;
         } else {
+          pushPatches([Add([name], value)]);
           target[name] = value;
         }
       }
@@ -99,18 +124,14 @@ function extendArray(val, observers) {
       return true;
     },
     deleteProperty(target, name) {
-      // prevent deletion of private keys, type and patchSymbol,
-      // removing them would break patch emission
       if (name in target && arrayNonIterableKeys.indexOf(name) === -1) {
-        // TODO: push remove patch to arrayPatches[proxy.patchSymbol]
+        pushPatches([Remove([name])]);
         return delete target[name];
       } else {
         return false;
       }
     },
     ownKeys(target) {
-      // prevent iterating type and patchSymbol, which are
-      // primarily private variables for use with Store...
       return Reflect.ownKeys(target).filter(key => {
         return arrayNonIterableKeys.indexOf(key) === -1;
       });
@@ -118,8 +139,6 @@ function extendArray(val, observers) {
   };
   proxy = new Proxy(val, arrHandler);
   proxy.type = ARRAY;
-  proxy.patchSymbol = Symbol();
-  arrayPatches[proxy.patchSymbol] = []; // initialize LUT entry for this observable array
   init = false;
   return proxy;
 }
@@ -152,6 +171,7 @@ const nonIterableKeys = [
   "register",
   "unregister",
   "patch",
+  "path",
   "parent",
   "type",
   "dispose"
@@ -165,10 +185,11 @@ const nonIterableKeys = [
  * @param {any} [state={}] - Object that defines your state/actions, 
  *   should be made of unobserved values, observables, computed, and actions.
  * @param {any} [actions={}] - Object declaring functions, and actions for store
- * @param {Store} - Parent Store, used for json refs and nested stores
+ * @param {Store} [parent=undefined] - Parent Store, used for json refs and nested stores
+ * @param {string} [name=""] - string which represents key where this Store is located in parent
  * @returns {Store} Proxy to use observables/computed transparently as if POJO.
  */
-export function Store(state = {}, actions = {}, parent) {
+export function Store(state = {}, actions = {}, parent = undefined, name = "") {
   const local = {};
   let proxy;
   const listeners = [];
@@ -176,7 +197,26 @@ export function Store(state = {}, actions = {}, parent) {
   const observed = observable([]);
   const unobserved = observable([]);
   const stores = observable([]);
+  const computeds = observable([]);
   let storeInit = true;
+  function handlePatchEmission() {
+    if (listeners.length > 0) {
+      emitPatches(listeners, patchQueue);
+    } else {
+      flush(patchQueue);
+    }
+  }
+  function childPatchListener(patches) {
+    const updatedPatches = patches.map(patch => {
+      return Object.assign({}, patch, {
+        path: arrToPointer(proxy.path) + patch.path
+      });
+    });
+    while (updatedPatches.length > 0) {
+      patchQueue.push(updatedPatches.shift());
+    }
+    handlePatchEmission();
+  }
   function addKey(name, value) {
     if (nonIterableKeys.indexOf(name) > -1) {
       return;
@@ -188,6 +228,8 @@ export function Store(state = {}, actions = {}, parent) {
       stores().push(name);
     } else if (type === OBSERVABLE) {
       observed().push(name);
+    } else if (type === COMPUTED) {
+      computeds().push(name);
     }
   }
   function removeKey(name) {
@@ -197,9 +239,11 @@ export function Store(state = {}, actions = {}, parent) {
     const ob = observed();
     const un = unobserved();
     const st = stores();
+    const cp = computeds();
     const indexOb = ob.indexOf(name);
     const indexUn = un.indexOf(name);
     const indexSt = st.indexOf(name);
+    const indexCp = cp.indexOf(name);
     if (indexOb > -1) {
       ob.splice(indexOb, 1);
     }
@@ -208,6 +252,9 @@ export function Store(state = {}, actions = {}, parent) {
     }
     if (indexSt > -1) {
       st.splice(indexSt, 1);
+    }
+    if (indexCp > -1) {
+      cp.splice(indexCp, 1);
     }
   }
   const storeHandler = {
@@ -254,9 +301,10 @@ export function Store(state = {}, actions = {}, parent) {
           valueType !== UNOBSERVED
         ) {
           if (typeof value === "object" && value !== null) {
-            value = Store(value, proxy); // by default upgrade objects to nested stores...
+            value = Store(value, {}, proxy, name); // by default upgrade objects to nested stores...
+            value.register(childPatchListener);
           } else {
-            value = observable(value); // by default upgrade values to observables
+            value = observable(value, proxy, name, patchQueue); // by default upgrade values to observables
           }
         } else if (valueType === UNOBSERVED) {
           value = value(); // unwrap unobserved values...
@@ -306,14 +354,22 @@ export function Store(state = {}, actions = {}, parent) {
     }
   };
   proxy = new Proxy(local, storeHandler);
+  proxy.path = computed(ctx => {
+    if (ctx.parent === undefined) {
+      return [];
+    } else {
+      return ctx.parent.path.concat(name);
+    }
+  }, proxy);
   Object.keys(state).forEach(key => {
     const value = state[key];
     const type = value != null ? value.type : undefined;
     if (typeof value !== "function") {
       if (type !== STORE && typeof value === "object" && value !== null) {
-        proxy[key] = Store(value, actions[key], proxy);
+        proxy[key] = Store(value, actions[key], proxy, key);
+        proxy[key].register(childPatchListener);
       } else {
-        proxy[key] = observable(value);
+        proxy[key] = observable(value, proxy, key, patchQueue);
       }
     } else {
       proxy[key] = computed(value, proxy);
@@ -335,6 +391,9 @@ export function Store(state = {}, actions = {}, parent) {
   });
   proxy.dispose = function() {
     const keys = Object.keys(local);
+    stores().forEach(store => {
+      store.unregister(childPatchListener);
+    });
     keys.forEach(key => {
       if (local[key] && typeof local[key].dispose === "function") {
         local[key].dispose();
@@ -390,7 +449,6 @@ export function Store(state = {}, actions = {}, parent) {
     const prevKeys = Object.keys(prev);
     const nextKeys = Object.keys(next);
     nextKeys.forEach(key => {
-      // TODO: rewrite this to account for new LUT array patch setup...
       if (stores().indexOf(key) === -1 && next[key] !== prev[key]) {
         if (typeof next[key] !== "object") {
           patchQueue.push(Add([key], next[key]));
@@ -406,10 +464,7 @@ export function Store(state = {}, actions = {}, parent) {
     prevKeys.forEach(key => {
       patchQueue.push(Remove([key]));
     });
-
-    if (listeners.length > 0) {
-      emitPatches(listeners, patchQueue);
-    }
+    handlePatchEmission();
   }
   proxy.snapshot = observable({});
   const snapDisposer = autorun(() => {
@@ -501,11 +556,24 @@ export function action(fn, context) {
  * @returns {observable} function that can be used to set and get your 
  *   observed value.
  */
-export function observable(value) {
+export function observable(value, parent, name, patchQueue) {
   const observers = [];
   let disposed = false;
+  function pushPatches(patches) {
+    if (name && parent && patchQueue) {
+      const arrPath = parent.path.concat(name);
+      const updatedPatches = patches.map(patch => {
+        return Object.assign({}, patch, {
+          path: arrToPointer(arrPath) + patch.path
+        });
+      });
+      while (updatedPatches.length > 0) {
+        patchQueue.push(updatedPatches.shift());
+      }
+    }
+  }
   if (Array.isArray(value)) {
-    value = extendArray(value, observers);
+    value = extendArray(value, observers, pushPatches);
   }
   const data = function() {
     if (disposed) {
@@ -520,14 +588,14 @@ export function observable(value) {
       const arg = arguments[0];
       if (actions === 0) {
         if (Array.isArray(arg)) {
-          value = extendArray(arg, observers);
+          value = extendArray(arg, observers, pushPatches);
         } else {
           value = arg;
         }
       } else {
         transaction.o.push(() => {
           if (Array.isArray(arg)) {
-            value = extendArray(arg, observers);
+            value = extendArray(arg, observers, pushPatches);
           } else {
             value = arg;
           }

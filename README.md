@@ -7,8 +7,8 @@
 *WIP* This aims to be a minimalist re-implementation of mobx-state-tree.
 
 PENDING:
-1. finish observable array and patch emission code
-2. get test coverage back to 100/100 with change back to implicit observable state with escape hatch via. unobserved(val) 
+1. refactor Store.{regsiter,unregister}, replace with Store.{addEventListener,removeEventListener} and create events for action/patch/restore...
+2. get test coverage back to 100/100
 
 This package utilizes Proxy, to create a "transparent" pojo-ish observable state tree.
 
