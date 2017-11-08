@@ -201,7 +201,7 @@ test("Store snapshots", t => {
   t.deepEqual(snap2, { a: "b", b: "a" });
 });
 
-test("Store should allow register and unregister for patch emissions", t => {
+test("Store should allow addListener and removeListener for patch emissions", t => {
   const store = Store({
     test: "test"
   });
@@ -209,11 +209,11 @@ test("Store should allow register and unregister for patch emissions", t => {
   const patchHandler = patches => {
     count++;
   };
-  store.register(patchHandler);
-  store.register(patchHandler);
+  store.addListener("patch", patchHandler);
+  store.addListener("patch", patchHandler);
   store.test = "test123";
-  store.unregister(patchHandler);
-  store.unregister(patchHandler);
+  store.removeListener("patch", patchHandler);
+  store.removeListener("patch", patchHandler);
   t.is(count, 1);
 });
 
@@ -268,7 +268,7 @@ test("Store should only emit patches when actions have been reconciled", t => {
   const fn = patches => {
     count++;
   };
-  store.register(fn);
+  store.addListener("patch", fn);
   const ten = action(ctx => {
     store.inc();
     store.inc();

@@ -168,8 +168,8 @@ function emitPatches(listeners, queue) {
 const nonIterableKeys = [
   "snapshot",
   "restore",
-  "register",
-  "unregister",
+  "addListener",
+  "removeListener",
   "patch",
   "path",
   "parent",
@@ -192,7 +192,11 @@ const nonIterableKeys = [
 export function Store(state = {}, actions = {}, parent = undefined, name = "") {
   const local = {};
   let proxy;
-  const listeners = [];
+  const listeners = {
+    action: [],
+    patch: [],
+    snapshot: []
+  };
   const patchQueue = [];
   const observed = observable([]);
   const unobserved = observable([]);
@@ -200,8 +204,9 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
   const computeds = observable([]);
   let storeInit = true;
   function handlePatchEmission() {
-    if (listeners.length > 0) {
-      emitPatches(listeners, patchQueue);
+    const list = listeners["patch"];
+    if (list.length > 0) {
+      emitPatches(list, patchQueue);
     } else {
       flush(patchQueue);
     }
@@ -367,7 +372,7 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
     if (typeof value !== "function") {
       if (type !== STORE && typeof value === "object" && value !== null) {
         proxy[key] = Store(value, actions[key], proxy, key);
-        proxy[key].register(childPatchListener);
+        proxy[key].addListener("patch", childPatchListener);
       } else {
         proxy[key] = observable(value, proxy, key, patchQueue);
       }
@@ -392,7 +397,7 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
   proxy.dispose = function() {
     const keys = Object.keys(local);
     stores().forEach(store => {
-      store.unregister(childPatchListener);
+      store.removeListener("patch", childPatchListener);
     });
     keys.forEach(key => {
       if (local[key] && typeof local[key].dispose === "function") {
@@ -430,15 +435,17 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
       }
     }
   }, proxy);
-  proxy.register = handler => {
-    if (listeners.indexOf(handler) === -1) {
-      listeners.push(handler);
+  proxy.addListener = (type, handler) => {
+    const list = listeners[type];
+    if (list.indexOf(handler) === -1) {
+      list.push(handler);
     }
   };
-  proxy.unregister = handler => {
-    const index = listeners.indexOf(handler);
+  proxy.removeListener = (type, handler) => {
+    const list = listeners[type];
+    const index = list.indexOf(handler);
     if (index > -1) {
-      listeners.splice(index, 1);
+      list.splice(index, 1);
     }
   };
   proxy.patch = patches => apply(proxy, patches);

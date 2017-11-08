@@ -7,7 +7,7 @@
 *WIP* This aims to be a minimalist re-implementation of mobx-state-tree.
 
 PENDING:
-1. refactor Store.{regsiter,unregister}, replace with Store.{addEventListener,removeEventListener} and create events for action/patch/restore...
+1. add action/snapshot/restore events
 2. get test coverage back to 100/100
 
 This package utilizes Proxy, to create a "transparent" pojo-ish observable state tree.
