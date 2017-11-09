@@ -14,7 +14,7 @@ import {
 const stack = [];
 let actions = 0;
 let depth = MAX_DEPTH;
-const transaction = { o: [], c: [], a: [] };
+const transaction = { observable: [], computed: [], autorun: [] };
 let reconciling = false;
 
 export function unobserved(value) {
@@ -31,17 +31,17 @@ function notifyObservers(observers) {
       observer.run();
     } else {
       if (observer.type === COMPUTED) {
-        const index = transaction.c.indexOf(observer);
+        const index = transaction.computed.indexOf(observer);
         if (index > -1) {
-          transaction.c.splice(index, 1);
+          transaction.computed.splice(index, 1);
         }
-        transaction.c.push(observer);
+        transaction.computed.push(observer);
       } else {
-        const index = transaction.a.indexOf(observer);
+        const index = transaction.autorun.indexOf(observer);
         if (index > -1) {
-          transaction.a.splice(index, 1);
+          transaction.autorun.splice(index, 1);
         }
-        transaction.a.push(observer);
+        transaction.autorun.push(observer);
       }
     }
   });
@@ -520,20 +520,20 @@ export function action(fn, context) {
     if (actions === 1) {
       reconciling = true;
       while (
-        (transaction.o.length > 0 ||
-          transaction.c.length > 0 ||
-          transaction.a.length > 0) &&
+        (transaction.observable.length > 0 ||
+          transaction.computed.length > 0 ||
+          transaction.autorun.length > 0) &&
         depth > 0
       ) {
-        if (transaction.o.length > 0) {
-          depth = conditionalDec(transaction.o.length === 1, depth);
-          transaction.o.shift()();
-        } else if (transaction.c.length > 0) {
-          depth = conditionalDec(transaction.c.length === 1, depth);
-          transaction.c.shift().run();
+        if (transaction.observable.length > 0) {
+          depth = conditionalDec(transaction.observable.length === 1, depth);
+          transaction.observable.shift()();
+        } else if (transaction.computed.length > 0) {
+          depth = conditionalDec(transaction.computed.length === 1, depth);
+          transaction.computed.shift().run();
         } else {
-          depth = conditionalDec(transaction.a.length === 1, depth);
-          transaction.a.shift().run();
+          depth = conditionalDec(transaction.autorun.length === 1, depth);
+          transaction.autorun.shift().run();
         }
       }
       if (depth === 0) {
@@ -600,7 +600,7 @@ export function observable(value, parent, name, patchQueue) {
           value = arg;
         }
       } else {
-        transaction.o.push(() => {
+        transaction.observable.push(() => {
           if (Array.isArray(arg)) {
             value = extendArray(arg, observers, pushPatches);
           } else {
