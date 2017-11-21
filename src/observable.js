@@ -180,9 +180,8 @@ const nonIterableKeys = [
 /**
  * Store - creates a proxy wrapper that allows observables to be used as if they
  * were plain javascript objects.
- * 
  * @export
- * @param {any} [state={}] - Object that defines your state/actions, 
+ * @param {any} [state={}] - Object that defines your state/actions,
  *   should be made of unobserved values, observables, computed, and actions.
  * @param {any} [actions={}] - Object declaring functions, and actions for store
  * @param {Store} [parent=undefined] - Parent Store, used for json refs and nested stores
@@ -203,6 +202,7 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
   const stores = observable([]);
   const computeds = observable([]);
   let storeInit = true;
+  let bRestoring = false;
   function handlePatchEmission() {
     const list = listeners["patch"];
     if (list.length > 0) {
@@ -221,6 +221,16 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
       patchQueue.push(updatedPatches.shift());
     }
     handlePatchEmission();
+  }
+  function childActionListener(path, params) {
+    const p = proxy.path || [];
+    emitAction(p.concat(path), params);
+  }
+  function emitAction(path, params) {
+    const list = listeners["action"];
+    if (list.length > 0) {
+      list.forEach(listener => listener(path, params));
+    }
   }
   function addKey(name, value) {
     if (nonIterableKeys.indexOf(name) > -1) {
@@ -283,18 +293,18 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
       }
       const entry = target[name];
       const type = entry != null ? entry.type : undefined;
-      if (nonIterableKeys.indexOf(name) > -1 && !storeInit) {
+      if (nonIterableKeys.indexOf(name) > -1 && !storeInit && !bRestoring) {
         return false;
       }
       if (name in target) {
         if (valueType === OBSERVABLE && type === OBSERVABLE) {
-          value = value(); // unwrap nested observables to avoid observable(observable("stuff"))
+          value = value();
         }
         if (type === OBSERVABLE) {
           target[name](value);
         } else {
           if (type && typeof entry.dispose === "function") {
-            entry.dispose(); // clean up if setting existing key that is COMPUTED or STORE
+            entry.dispose();
             removeKey(name);
           }
           target[name] = value;
@@ -306,13 +316,21 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
           valueType !== UNOBSERVED
         ) {
           if (typeof value === "object" && value !== null) {
-            value = Store(value, {}, proxy, name); // by default upgrade objects to nested stores...
+            value = Store(value, {}, proxy, name);
             value.addListener("patch", childPatchListener);
+            value.addListener("action", childActionListener);
           } else {
-            value = observable(value, proxy, name, patchQueue); // by default upgrade values to observables
+            value = observable(value, proxy, name, patchQueue);
           }
         } else if (valueType === UNOBSERVED) {
-          value = value(); // unwrap unobserved values...
+          value = value();
+        } else if (valueType === ACTION) {
+          const actionFn = value;
+          const actionWrapper = () => {
+            actionFn(...arguments);
+            emitAction([name], arguments);
+          };
+          value = actionWrapper;
         }
         addKey(name, value);
         target[name] = value;
@@ -373,6 +391,7 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
       if (type !== STORE && typeof value === "object" && value !== null) {
         proxy[key] = Store(value, actions[key], proxy, key);
         proxy[key].addListener("patch", childPatchListener);
+        proxy[key].addListener("action", childActionListener);
       } else {
         proxy[key] = observable(value, proxy, key, patchQueue);
       }
@@ -388,6 +407,7 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
       if (t !== ACTION) {
         proxy[key] = function() {
           action(proxy, ...arguments); // wrap async actions providing context to first parameter...
+          emitAction([key], arguments)
         };
       } else {
         proxy[key] = action;
@@ -398,6 +418,7 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
     const keys = Object.keys(local);
     stores().forEach(store => {
       store.removeListener("patch", childPatchListener);
+      store.removeListener("action", childActionListener);
     });
     keys.forEach(key => {
       if (local[key] && typeof local[key].dispose === "function") {
@@ -407,8 +428,11 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
     });
   };
   proxy.restore = action((ctx, snap) => {
-    const prevKeys = Object.keys(proxy);
-    for (let key in snap) {
+    bRestoring = true;
+    const notIterable = key => nonIterableKeys.indexOf(key) === -1;
+    const prevKeys = Object.keys(proxy).filter(notIterable);
+    const snapKeys = Object.keys(snap).filter(notIterable);
+    snapKeys.forEach(key => {
       const type = local[key].type;
       if (
         type === STORE &&
@@ -423,17 +447,14 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
       if (prevIndex > -1) {
         prevKeys.splice(prevIndex, 1);
       }
-    }
+    });
     let i = 0;
     const prevLen = prevKeys.length;
     for (; i < prevLen; i++) {
       const key = prevKeys[i];
-      const value = local[key];
-      const type = value.type;
-      if (nonIterableKeys.indexOf(key) === -1 && (!type || type <= STORE)) {
-        delete ctx[key];
-      }
+      delete ctx[key];
     }
+    bRestoring = false;
   }, proxy);
   proxy.addListener = (type, handler) => {
     const list = listeners[type];
@@ -475,10 +496,7 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
   }
   proxy.snapshot = observable({});
   const snapDisposer = autorun(() => {
-    let init = false;
-    if (lastSnap === undefined) {
-      init = true;
-    }
+    const init = lastSnap == null ? true : false;
     lastSnap = proxy.snapshot;
     const result = {};
     observed().forEach(key => {
@@ -495,6 +513,12 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
     }
     local.snapshot(result);
   });
+  const snapEvents = autorun(() => {
+    const list = listeners["snapshot"];
+    if (list.length > 0) {
+      list.forEach(listener => listener(proxy.snapshot));
+    }
+  });
   storeInit = false;
   return proxy;
 }
@@ -504,10 +528,9 @@ function conditionalDec(condition, count) {
 }
 
 /**
- * action - Batches changes to observables and computed values so that 
- * they are computed without glitches and without triggering autoruns 
+ * action - Batches changes to observables and computed values so that
+ * they are computed without glitches and without triggering autoruns
  * with stale data.
- * 
  * @export
  * @param {any} fn - the function that defines how to modify observables.
  * @param {any} context - the "this" context for this action.
@@ -555,12 +578,11 @@ export function action(fn, context) {
 }
 
 /**
- * observable - function that creates a new observable value that is stored 
+ * observable - function that creates a new observable value that is stored
  * in a function closure.
- * 
  * @export
- * @param {any} value - value to store in the observable. 
- * @returns {observable} function that can be used to set and get your 
+ * @param {any} value - value to store in the observable.
+ * @returns {observable} function that can be used to set and get your
  *   observed value.
  */
 export function observable(value, parent, name, patchQueue) {
@@ -639,11 +661,10 @@ export function observable(value, parent, name, patchQueue) {
  * computed - creates a computed value that will automatically update
  * when the observables it depends upon are updated.  It will also
  * only evaluate on retrieval if not being actively observed.
- * 
  * @export
  * @param {any} thunk - function that determines the computed value.
  * @param {any} context - context for the thunk.
- * @returns {computed} function that can be used to retrieve the 
+ * @returns {computed} function that can be used to retrieve the
  *   latest computed value.
  */
 export function computed(thunk, context) {
@@ -702,11 +723,10 @@ function flush(arr) {
 /**
  * autorun - thunk that is executed any time any of it's observable
  * or computed dependencies are updated.
- * 
  * @export
- * @param {any} thunk - function to execute that depends on 
+ * @param {any} thunk - function to execute that depends on
  *   observables/computed values.
- * @param {boolean} [computed=false] - is used to determine if 
+ * @param {boolean} [computed=false] - is used to determine if
  *   this autorun is being used for a computed value.
  * @returns {dispose } function that can be used to dispose of this autorun.
  */
