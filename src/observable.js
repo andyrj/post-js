@@ -222,6 +222,12 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
     }
     handlePatchEmission();
   }
+  function childActionListener(path, params) {
+    const list = listeners["action"];
+    if (list.length > 0) {
+      list.forEach(listener => listener(proxy.path.concat(path), params));
+    }
+  }
   function addKey(name, value) {
     if (nonIterableKeys.indexOf(name) > -1) {
       return;
@@ -308,6 +314,7 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
           if (typeof value === "object" && value !== null) {
             value = Store(value, {}, proxy, name); // by default upgrade objects to nested stores...
             value.addListener("patch", childPatchListener);
+            value.addListener("action", childActionListener);
           } else {
             value = observable(value, proxy, name, patchQueue); // by default upgrade values to observables
           }
@@ -398,6 +405,7 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
     const keys = Object.keys(local);
     stores().forEach(store => {
       store.removeListener("patch", childPatchListener);
+      store.removeListener("action", childActionListener);
     });
     keys.forEach(key => {
       if (local[key] && typeof local[key].dispose === "function") {
