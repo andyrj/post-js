@@ -307,7 +307,7 @@ export function Store(state = {}, actions = {}, parent = undefined, name = "") {
         ) {
           if (typeof value === "object" && value !== null) {
             value = Store(value, {}, proxy, name); // by default upgrade objects to nested stores...
-            value.register(childPatchListener);
+            value.addListener("patch", childPatchListener);
           } else {
             value = observable(value, proxy, name, patchQueue); // by default upgrade values to observables
           }
